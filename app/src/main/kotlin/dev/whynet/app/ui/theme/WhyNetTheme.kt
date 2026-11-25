@@ -21,9 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsControllerCompat
 
-enum class AppThemeMode(val title: String) {
-    DARK("Тёмная"),
-    LIGHT("Светлая"),
+enum class AppThemeMode(val title: String, val titleEn: String) {
+    DARK("Тёмная", "Dark"),
+    LIGHT("Светлая", "Light"),
     ;
 
     companion object {
@@ -31,6 +31,23 @@ enum class AppThemeMode(val title: String) {
             entries.firstOrNull { it.name.equals(key, ignoreCase = true) } ?: DARK
     }
 }
+
+enum class AppLanguage(val title: String) {
+    RU("Русский"),
+    EN("English"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): AppLanguage =
+            entries.firstOrNull { it.name.equals(key, ignoreCase = true) } ?: RU
+    }
+}
+
+val LocalAppLanguage = staticCompositionLocalOf { AppLanguage.RU }
+
+@Composable
+fun tr(ru: String, en: String): String =
+    if (LocalAppLanguage.current == AppLanguage.EN) en else ru
 
 @Immutable
 data class WhyNetPalette(
@@ -223,6 +240,7 @@ private val WhyNetTypography = Typography(
 @Composable
 fun WhyNetTheme(
     themeMode: AppThemeMode = AppThemeMode.DARK,
+    language: AppLanguage = AppLanguage.RU,
     content: @Composable () -> Unit,
 ) {
     val (colorScheme, palette) = when (themeMode) {
@@ -243,6 +261,7 @@ fun WhyNetTheme(
 
     CompositionLocalProvider(
         LocalWhyNetPalette provides palette,
+        LocalAppLanguage provides language,
         LocalMinimumInteractiveComponentSize provides 32.dp,
     ) {
         MaterialTheme(

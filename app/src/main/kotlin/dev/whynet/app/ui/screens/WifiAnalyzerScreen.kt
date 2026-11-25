@@ -63,6 +63,7 @@ import dev.whynet.app.R
 import dev.whynet.app.WifiAnalyzerUiState
 import dev.whynet.app.ui.components.WifiHeatmapCard
 import dev.whynet.app.ui.theme.WhyNetColors
+import dev.whynet.app.ui.theme.tr
 import androidx.compose.ui.text.style.TextOverflow
 import dev.whynet.core.engine.BandRecommendation
 import dev.whynet.core.engine.ChannelInterferenceReport
@@ -163,7 +164,7 @@ fun WifiAnalyzerScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Wi-Fi Анализатор",
+                            text = tr("Wi-Fi Анализатор", "Wi-Fi Analyzer"),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -214,11 +215,11 @@ fun WifiAnalyzerScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 val tabs = listOf(
-                    "Каналы",
-                    "Карта (${state.heatmapPlan.points.size})",
-                    "Сигнал",
-                    "Сети (${state.entries.size})",
-                    "Устройства",
+                    tr("Каналы", "Channels"),
+                    "${tr("Карта", "Map")} (${state.heatmapPlan.points.size})",
+                    tr("Сигнал", "Signal"),
+                    "${tr("Сети", "Networks")} (${state.entries.size})",
+                    tr("Устройства", "Devices"),
                 )
                 tabs.forEachIndexed { idx, label ->
                     FilterChip(

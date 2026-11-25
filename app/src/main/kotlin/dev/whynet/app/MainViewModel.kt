@@ -29,6 +29,7 @@ import dev.whynet.app.service.RemoteHelpRelayClient
 import dev.whynet.app.service.RemoteRole
 import dev.whynet.app.service.SavedAppProfile
 import dev.whynet.app.service.WhyNetObserverVpnService
+import dev.whynet.app.ui.theme.AppLanguage
 import dev.whynet.app.ui.theme.AppThemeMode
 import dev.whynet.core.engine.AppDomainFilter
 import dev.whynet.core.engine.BandRecommendation
@@ -294,6 +295,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setThemeMode(mode: AppThemeMode) {
         prefsStore.themeMode = mode.name
         _themeMode.value = mode
+    }
+
+    private val _appLanguage = MutableStateFlow(AppLanguage.fromKey(prefsStore.appLanguage))
+    val appLanguage: StateFlow<AppLanguage> = _appLanguage.asStateFlow()
+
+    fun setAppLanguage(lang: AppLanguage) {
+        prefsStore.appLanguage = lang.name
+        _appLanguage.value = lang
     }
 
     private var netRefreshDebounceJob: Job? = null

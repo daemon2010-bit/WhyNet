@@ -84,9 +84,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import dev.whynet.app.service.DropoutWatcherService
+import dev.whynet.app.ui.theme.AppLanguage
 import dev.whynet.app.ui.theme.AppThemeMode
 import dev.whynet.app.ui.theme.WhyNetColors
 import dev.whynet.app.ui.theme.WhyNetTheme
+import dev.whynet.app.ui.theme.tr
 import dev.whynet.core.engine.HelpLinkCodec
 import dev.whynet.core.engine.HelpTaskSpec
 import dev.whynet.core.model.ActionType
@@ -115,11 +117,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
-            WhyNetTheme(themeMode = themeMode) {
+            val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
+            WhyNetTheme(themeMode = themeMode, language = appLanguage) {
                 WhyNetAppShell(
                     viewModel = viewModel,
                     themeMode = themeMode,
+                    appLanguage = appLanguage,
                     onSelectTheme = viewModel::setThemeMode,
+                    onSelectLanguage = viewModel::setAppLanguage,
                     onOpenSystemAction = ::handleSystemAction,
                     onCopyReport = ::copySessionReport,
                     onShareReport = ::shareSessionReport,
@@ -311,7 +316,9 @@ class MainActivity : ComponentActivity() {
 private fun WhyNetAppShell(
     viewModel: MainViewModel,
     themeMode: AppThemeMode,
+    appLanguage: AppLanguage,
     onSelectTheme: (AppThemeMode) -> Unit,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onOpenSystemAction: (RecommendedAction) -> Unit,
     onCopyReport: (DiagnosticSession) -> Unit,
     onShareReport: (DiagnosticSession) -> Unit,
@@ -504,7 +511,7 @@ private fun WhyNetAppShell(
                     val toolsSel = currentTab == AppTab.Tools
 
                     CompactNavTab(
-                        label = "Сеть",
+                        label = tr("Сеть", "Network"),
                         selected = netSel,
                         onClick = { navigateToTab(AppTab.Check) },
                         icon = {
@@ -537,7 +544,7 @@ private fun WhyNetAppShell(
                         modifier = Modifier.weight(1f),
                     )
                     CompactNavTab(
-                        label = "Утилиты",
+                        label = tr("Утилиты", "Tools"),
                         selected = toolsSel,
                         onClick = {
                             viewModel.showToolsMenu()
@@ -824,27 +831,46 @@ private fun WhyNetAppShell(
     if (showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { showSettingsDialog = false },
-            title = { Text("Настройки WhyNet") },
+            title = { Text(tr("Настройки WhyNet", "WhyNet Settings")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Тема оформления",
+                        text = tr("Тема оформления", "Theme"),
                         style = MaterialTheme.typography.labelLarge,
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         AppThemeMode.entries.forEach { mode ->
                             FilterChip(
                                 selected = themeMode == mode,
                                 onClick = { onSelectTheme(mode) },
-                                label = { Text(mode.title) },
+                                label = { Text(tr(mode.title, mode.titleEn)) },
                             )
                         }
                     }
                     Text(
-                        text = "• Автообновление при смене Wi-Fi / 4G+: Вкл\n• Автоопределение БС (eNB) и помех Wi-Fi: Вкл\n• Сервер теста скорости: Авто (РФ + Cloudflare)",
+                        text = tr("Язык / Language", "Language / Язык"),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        AppLanguage.entries.forEach { lang ->
+                            FilterChip(
+                                selected = appLanguage == lang,
+                                onClick = { onSelectLanguage(lang) },
+                                label = { Text(lang.title) },
+                            )
+                        }
+                    }
+                    Text(
+                        text = tr(
+                            "• Автообновление при смене Wi-Fi / 4G+: Вкл\n• Автоопределение БС (eNB) и помех Wi-Fi: Вкл\n• Сервер теста скорости: Авто (РФ + Cloudflare)",
+                            "• Auto-refresh on Wi-Fi / 4G+ switch: On\n• Auto cell tower (eNB) & Wi-Fi load: On\n• Speed test server: Auto (RU + Cloudflare)",
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -852,7 +878,7 @@ private fun WhyNetAppShell(
             },
             confirmButton = {
                 TextButton(onClick = { showSettingsDialog = false }) {
-                    Text("Готово")
+                    Text(tr("Готово", "Done"))
                 }
             },
         )

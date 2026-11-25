@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.whynet.app.ui.theme.WhyNetColors
+import dev.whynet.app.ui.theme.tr
 import dev.whynet.core.model.DiagnosticSession
 import dev.whynet.core.model.StageId
 import dev.whynet.core.model.VerdictCategory
@@ -110,7 +111,7 @@ fun HistoryScreen(
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 if (onBack != null) {
                     Text(
-                        text = "← Назад к проверке",
+                        text = tr("← Назад к проверке", "← Back to check"),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
@@ -126,15 +127,15 @@ fun HistoryScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "История проверок",
+                            text = tr("История проверок", "Check history"),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                         )
                         Text(
                             text = if (searchQuery.isBlank()) {
-                                "Сохранено отчётов: ${sessions.size}"
+                                tr("Сохранено отчётов: ${sessions.size}", "Saved reports: ${sessions.size}")
                             } else {
-                                "Найдено: ${filteredSessions.size} из ${sessions.size}"
+                                tr("Найдено: ${filteredSessions.size} из ${sessions.size}", "Found: ${filteredSessions.size} of ${sessions.size}")
                             },
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -142,7 +143,7 @@ fun HistoryScreen(
                     }
                     if (sessions.isNotEmpty()) {
                         Text(
-                            text = "Очистить всё",
+                            text = tr("Очистить всё", "Clear all"),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = WhyNetColors.FailRed,

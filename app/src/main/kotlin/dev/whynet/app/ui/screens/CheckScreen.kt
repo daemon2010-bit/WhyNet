@@ -60,6 +60,7 @@ import dev.whynet.app.CheckUiState
 import dev.whynet.app.QuickPreset
 import dev.whynet.app.ui.components.NetworkTopologyMap
 import dev.whynet.app.ui.theme.WhyNetColors
+import dev.whynet.app.ui.theme.tr
 import dev.whynet.core.engine.ReportFormatter
 import dev.whynet.core.model.DiagnosticSession
 import dev.whynet.core.model.NetworkSnapshot
@@ -148,8 +149,8 @@ fun CheckScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    CompactHeaderButton(text = "История", onClick = onOpenHistory)
-                    CompactHeaderButton(text = "Ссылка", onClick = onOpenHelpLink)
+                    CompactHeaderButton(text = tr("История", "History"), onClick = onOpenHistory)
+                    CompactHeaderButton(text = tr("Ссылка", "Link"), onClick = onOpenHelpLink)
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -205,21 +206,21 @@ fun CheckScreen(
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         ModeTabBtn(
-                            label = "Вся сеть",
+                            label = tr("Вся сеть", "Network"),
                             selected = state.selectedPreset == QuickPreset.NETWORK,
                             enabled = !state.isRunning,
                             onClick = { onSelectPreset(QuickPreset.NETWORK) },
                             modifier = Modifier.weight(1f),
                         )
                         ModeTabBtn(
-                            label = "Сайт",
+                            label = tr("Сайт", "Website"),
                             selected = state.selectedPreset == QuickPreset.WEBSITE,
                             enabled = !state.isRunning,
                             onClick = { onSelectPreset(QuickPreset.WEBSITE) },
                             modifier = Modifier.weight(1f),
                         )
                         ModeTabBtn(
-                            label = "Приложение",
+                            label = tr("Приложение", "App"),
                             selected = false,
                             enabled = !state.isRunning,
                             onClick = onOpenAppCheck,
@@ -299,7 +300,7 @@ fun CheckScreen(
                             modifier = Modifier.height(42.dp),
                         ) {
                             Text(
-                                text = if (state.isRunning) "Стоп" else "Проверить",
+                                text = if (state.isRunning) tr("Стоп", "Stop") else tr("Проверить", "Check"),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -336,7 +337,7 @@ fun CheckScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Путь пакета (7 этапов)",
+                            text = tr("Путь пакета (7 этапов)", "Packet path (7 stages)"),
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -427,7 +428,7 @@ fun CheckScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "Полная техническая информация",
+                                text = tr("Полная техническая информация", "Full technical details"),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -436,7 +437,7 @@ fun CheckScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             Text(
-                                text = if (showFullTechReport) "Свернуть ▴" else "Развернуть ▾",
+                                text = if (showFullTechReport) tr("Свернуть ▴", "Collapse ▴") else tr("Развернуть ▾", "Expand ▾"),
                                 fontSize = 10.5.sp,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
@@ -829,13 +830,13 @@ private fun ContoursCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Контуры доступности на этой БС",
+                    text = tr("Контуры доступности на этой БС", "Availability contours"),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = if (isLoading) "проверка..." else "Обновить ↻",
+                    text = if (isLoading) tr("проверка...", "checking...") else tr("Обновить ↻", "Refresh ↻"),
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.primary,

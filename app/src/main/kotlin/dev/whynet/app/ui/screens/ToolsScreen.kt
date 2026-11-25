@@ -82,6 +82,7 @@ import dev.whynet.app.ui.components.TspuTestToolView
 import dev.whynet.app.ui.components.WakeOnLanToolView
 import dev.whynet.app.ui.components.WhoisIpToolView
 import dev.whynet.app.ui.theme.WhyNetColors
+import dev.whynet.app.ui.theme.tr
 import dev.whynet.core.probes.PingTick
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -175,7 +176,7 @@ fun ToolsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (!showGridMenu) {
                     Text(
-                        text = "← Утилиты",
+                        text = tr("← Утилиты", "← Tools"),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
@@ -185,13 +186,13 @@ fun ToolsScreen(
                     )
                 }
                 Text(
-                    text = if (showGridMenu) "Утилиты" else state.selectedTool.title,
+                    text = if (showGridMenu) tr("Утилиты", "Tools") else state.selectedTool.title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
                     text = if (showGridMenu) {
-                        "Базовые сетевые проверки и тесты ТСПУ / DNS"
+                        tr("Базовые сетевые проверки и тесты ТСПУ / DNS", "Core network tools, DPI & DNS checks")
                     } else {
                         state.selectedTool.subtitle
                     },

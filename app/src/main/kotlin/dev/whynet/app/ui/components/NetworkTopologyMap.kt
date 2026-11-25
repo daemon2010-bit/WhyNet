@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.whynet.app.ui.theme.WhyNetColors
+import dev.whynet.app.ui.theme.tr
 import dev.whynet.core.model.NetworkSnapshot
 import dev.whynet.core.model.ProbeResult
 import dev.whynet.core.model.ProbeStatus
@@ -104,9 +105,9 @@ fun NetworkTopologyMap(
     val isCell = (snapshot?.transport ?: transportKind) == TransportKind.CELLULAR
     val netEmoji = if (isWifi) "📶" else "📡"
     val netTitle = when {
-        isWifi -> "Роутер"
-        isCell -> "Вышка 4G+"
-        else -> "Сеть"
+        isWifi -> tr("Роутер", "Router")
+        isCell -> tr("Вышка 4G+", "Tower 4G+")
+        else -> tr("Сеть", "Network")
     }
 
     // Реальные задержки этапов и кумулятивные (суммарные) значения до каждого узла
@@ -236,12 +237,12 @@ fun NetworkTopologyMap(
                     if (text.isNullOrBlank()) return
                     val paint = android.graphics.Paint().apply {
                         isAntiAlias = true
-                        textSize = 7.6.sp.toPx()
+                        textSize = 8.2.sp.toPx()
                         this.color = color.toArgb()
                         textAlign = android.graphics.Paint.Align.CENTER
                         typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
                     }
-                    drawContext.canvas.nativeCanvas.drawText(text, xMid, yLine - 6f, paint)
+                    drawContext.canvas.nativeCanvas.drawText(text, xMid, yLine - 8f, paint)
                 }
 
                 // 1. Телефон ---> Вышка/Роутер (+пинг до роутера/вышки)
@@ -265,7 +266,7 @@ fun NetworkTopologyMap(
                 drawLinkDelta((xNetEnd + xRightStart) / 2f, yChain, tcpDelta?.let { "+${it}" }, colNetTcp)
 
                 // 4. Связь ---> Защита (TLS)
-                val gapPx = 14.dp.toPx()
+                val gapPx = 16.dp.toPx()
                 val rightW = w - xRightStart
                 val miniW = (rightW - gapPx * 2f) / 3f
                 val xTcpEnd = xRightStart + miniW
@@ -293,7 +294,7 @@ fun NetworkTopologyMap(
                 // 1. Телефон (20.5%)
                 DeviceNodeCard(
                     emoji = "📱",
-                    title = "Телефон",
+                    title = tr("Телефон", "Phone"),
                     line1 = phoneIpShort,
                     line2 = phoneSub,
                     line3 = if (probeMap[StageId.ENVIRONMENT] != null) "0мс · OK" else "—",
@@ -382,14 +383,14 @@ fun NetworkTopologyMap(
                         }
                     }
 
-                    // Ветка 2: Связь (TCP) -> Защита (TLS) -> Сервер (HTTP) (зазор 14dp для подписи дельты на стрелке)
+                    // Ветка 2: Связь (TCP) -> Защита (TLS) -> Сервер (HTTP) (зазор 16dp для подписи дельты на стрелке)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         MiniStageCard(
                             emoji = "🔌",
-                            title = "Связь",
+                            title = tr("Связь", "Link"),
                             delta = null,
                             total = tcpVal,
                             sub = "TCP",
@@ -400,7 +401,7 @@ fun NetworkTopologyMap(
                         )
                         MiniStageCard(
                             emoji = "🔒",
-                            title = "Защита",
+                            title = tr("Защита", "TLS"),
                             delta = null,
                             total = tlsVal,
                             sub = "TLS1.3",
@@ -411,7 +412,7 @@ fun NetworkTopologyMap(
                         )
                         MiniStageCard(
                             emoji = "🌐",
-                            title = "Сервер",
+                            title = tr("Сервер", "Server"),
                             delta = null,
                             total = httpVal,
                             sub = httpSub,
@@ -570,19 +571,19 @@ private fun DeviceNodeCard(
     }
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(7.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(bg)
-            .border(if (selected) 1.6.dp else 1.dp, accent, RoundedCornerShape(7.dp))
+            .border(if (selected) 1.6.dp else 1.dp, accent, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 3.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
     ) {
-        Text(text = emoji, fontSize = 12.sp, lineHeight = 13.sp)
+        Text(text = emoji, fontSize = 13.sp, lineHeight = 14.sp)
         Text(
             text = title,
-            fontSize = 9.5.sp,
-            lineHeight = 11.sp,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
@@ -590,9 +591,8 @@ private fun DeviceNodeCard(
         )
         Text(
             text = line1,
-            fontSize = 8.5.sp,
-            lineHeight = 10.sp,
-            letterSpacing = (-0.25).sp,
+            fontSize = 9.sp,
+            lineHeight = 11.5.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -600,9 +600,8 @@ private fun DeviceNodeCard(
         )
         Text(
             text = line2,
-            fontSize = 8.5.sp,
-            lineHeight = 10.sp,
-            letterSpacing = (-0.25).sp,
+            fontSize = 9.sp,
+            lineHeight = 11.5.sp,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -610,8 +609,8 @@ private fun DeviceNodeCard(
         )
         Text(
             text = line3,
-            fontSize = 9.sp,
-            lineHeight = 11.sp,
+            fontSize = 9.5.sp,
+            lineHeight = 12.sp,
             fontWeight = FontWeight.Bold,
             color = if (accent == WhyNetColors.Border) MaterialTheme.colorScheme.onSurfaceVariant else accent,
             maxLines = 1,
@@ -636,19 +635,19 @@ private fun MiniStageCard(
     val bg = if (highlightFail) accent.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceContainerHigh
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(7.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(bg)
-            .border(if (selected || highlightFail) 1.4.dp else 1.dp, accent, RoundedCornerShape(7.dp))
+            .border(if (selected || highlightFail) 1.4.dp else 1.dp, accent, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 2.dp, vertical = 4.dp),
+            .padding(horizontal = 3.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
     ) {
-        Text(text = emoji, fontSize = 10.sp, lineHeight = 11.sp)
+        Text(text = emoji, fontSize = 11.sp, lineHeight = 12.sp)
         Text(
             text = title,
-            fontSize = 9.sp,
-            lineHeight = 10.5.sp,
+            fontSize = 9.5.sp,
+            lineHeight = 11.5.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (highlightFail) accent else MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
@@ -656,9 +655,8 @@ private fun MiniStageCard(
         )
         Text(
             text = total,
-            fontSize = 9.5.sp,
-            lineHeight = 11.sp,
-            letterSpacing = (-0.2).sp,
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
             fontWeight = FontWeight.Bold,
             color = if (accent == WhyNetColors.Border) MaterialTheme.colorScheme.onSurfaceVariant else accent,
             maxLines = 1,
@@ -666,9 +664,8 @@ private fun MiniStageCard(
         )
         Text(
             text = if (delta != null) "$delta · $sub" else sub,
-            fontSize = 7.8.sp,
-            lineHeight = 9.5.sp,
-            letterSpacing = (-0.25).sp,
+            fontSize = 8.5.sp,
+            lineHeight = 10.5.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

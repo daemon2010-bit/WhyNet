@@ -39,6 +39,12 @@ class AppPreferencesStore(context: Context) {
             prefs.edit().putString(KEY_THEME_MODE, value).apply()
         }
 
+    var appLanguage: String
+        get() = prefs.getString(KEY_APP_LANGUAGE, "RU").orEmpty().ifBlank { "RU" }
+        set(value) {
+            prefs.edit().putString(KEY_APP_LANGUAGE, value).apply()
+        }
+
     fun loadSavedAppProfiles(): List<SavedAppProfile> {
         val raw = prefs.getString(KEY_APP_PROFILES, null) ?: return emptyList()
         return runCatching {
@@ -108,5 +114,6 @@ class AppPreferencesStore(context: Context) {
         private const val KEY_RELAY_URL = "relay_url"
         private const val KEY_APP_PROFILES = "saved_app_profiles"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_APP_LANGUAGE = "app_language"
     }
 }
