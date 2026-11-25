@@ -802,8 +802,7 @@ private fun WhyNetAppShell(
                             backStack.clear()
                             backStack.add(AppTab.Check)
                         },
-                        onShareSession = onShareReport,
-                        onExportArchiveZip = { onExportArchiveZip(history) },
+                        onExportSessionsZip = { list -> onExportArchiveZip(list) },
                         onDeleteSession = viewModel::deleteSession,
                         onClearAll = viewModel::clearHistory,
                         onBack = {

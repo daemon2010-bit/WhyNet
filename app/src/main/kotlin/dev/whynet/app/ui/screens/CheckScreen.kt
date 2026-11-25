@@ -457,20 +457,12 @@ fun CheckScreen(
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Spacer(Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                CompactHeaderButton(
-                                    text = "Поделиться отчётом",
-                                    onClick = { onShareReport(session) },
-                                )
-                                CompactHeaderButton(
-                                    text = "Файл .txt",
-                                    onClick = onOpenIssueReport,
-                                )
-                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = "Отчёт автоматически сохранён в «Истории» - там можно найти и отправить нужные отчёты архивом.",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
@@ -779,14 +771,6 @@ private fun VerdictAndAdviceCard(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    imageVector = Icons.Rounded.Share,
-                    contentDescription = "Поделиться",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable(onClick = onShareReport),
                 )
             }
             Text(
