@@ -1,0 +1,27 @@
+# Gradle & Kotlin
+.gradle/
+.kotlin/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+local.properties
+captures/
+.cxx/
+.externalNativeBuild/
+
+# Keystores & Secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+google-services.json
+
+# OS & Logs
+.DS_Store
+Thumbs.db
+*.log
+*.hprof
