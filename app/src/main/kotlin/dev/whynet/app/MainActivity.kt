@@ -539,7 +539,10 @@ private fun WhyNetAppShell(
                     CompactNavTab(
                         label = "Утилиты",
                         selected = toolsSel,
-                        onClick = { navigateToTab(AppTab.Tools) },
+                        onClick = {
+                            viewModel.showToolsMenu()
+                            navigateToTab(AppTab.Tools)
+                        },
                         icon = {
                             Icon(
                                 Icons.Rounded.Build,
@@ -708,6 +711,7 @@ private fun WhyNetAppShell(
                         suiteState = suiteState,
                         hasActiveExternalVpn = checkState.liveSnapshot?.activeExternalVpn == true,
                         onSelectTool = viewModel::selectTool,
+                        onShowToolsMenu = viewModel::showToolsMenu,
                         onHostChange = viewModel::updateToolHost,
                         onRunTool = ::runToolWithOptionalNotifPerm,
                         onStopTool = viewModel::stopTool,

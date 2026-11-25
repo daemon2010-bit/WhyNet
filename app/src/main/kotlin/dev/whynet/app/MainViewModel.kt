@@ -170,6 +170,7 @@ data class WifiAnalyzerUiState(
 
 data class ToolsUiState(
     val selectedTool: ToolKind = ToolKind.DROPOUT_WATCHER,
+    val showToolsMenu: Boolean = true,
     val hostInput: String = "1.1.1.1",
     val isRunning: Boolean = false,
     val liveNote: String? = null,
@@ -578,6 +579,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Экран «Инструменты» ---
 
+    fun showToolsMenu() {
+        _toolsState.update { it.copy(showToolsMenu = true) }
+    }
+
     fun selectTool(tool: ToolKind) {
         toolJob?.cancel()
         val snap = _checkState.value.liveSnapshot
@@ -595,6 +600,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _toolsState.update {
             it.copy(
                 selectedTool = tool,
+                showToolsMenu = false,
                 hostInput = defaultHost,
                 wolBroadcast = suggestedBroadcast ?: it.wolBroadcast,
                 cidrInput = if (tool == ToolKind.CIDR_CALC && suggestedCidr != null) suggestedCidr else it.cidrInput,

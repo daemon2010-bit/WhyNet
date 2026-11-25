@@ -95,6 +95,7 @@ fun ToolsScreen(
     suiteState: SuiteUiState,
     hasActiveExternalVpn: Boolean,
     onSelectTool: (ToolKind) -> Unit,
+    onShowToolsMenu: () -> Unit = {},
     onHostChange: (String) -> Unit,
     onRunTool: () -> Unit,
     onStopTool: () -> Unit,
@@ -133,19 +134,16 @@ fun ToolsScreen(
         ToolKind.TEST_SUITE -> suiteState.isRunning
         else -> state.isRunning
     }
-    var showGridMenu by remember {
-        mutableStateOf(
-            !watcherState.isRunning && !appObserverState.isRunning && !appAutoCheckState.isRunning && !suiteState.isRunning && !state.isRunning,
-        )
-    }
+    val showGridMenu = state.showToolsMenu
     var showMoreTools by remember { mutableStateOf(false) }
 
     BackHandler(enabled = !showGridMenu) {
-        showGridMenu = true
+        onShowToolsMenu()
     }
 
     val primaryTools = remember {
         listOf(
+            ToolKind.APP_OBSERVER,
             ToolKind.TSPU_TEST,
             ToolKind.SERVICE_LATENCY,
             ToolKind.MASS_DNS_BENCH,
@@ -158,7 +156,6 @@ fun ToolsScreen(
     }
     val extraTools = remember {
         listOf(
-            ToolKind.APP_OBSERVER,
             ToolKind.TEST_SUITE,
             ToolKind.WAKE_ON_LAN,
             ToolKind.CIDR_CALC,
@@ -183,7 +180,7 @@ fun ToolsScreen(
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .clickable { showGridMenu = true }
+                            .clickable { onShowToolsMenu() }
                             .padding(vertical = 3.dp),
                     )
                 }
@@ -211,10 +208,7 @@ fun ToolsScreen(
                     else -> state.isRunning && state.selectedTool == tool
                 }
                 OutlinedCard(
-                    onClick = {
-                        onSelectTool(tool)
-                        showGridMenu = false
-                    },
+                    onClick = { onSelectTool(tool) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, WhyNetColors.Border),
@@ -283,7 +277,7 @@ fun ToolsScreen(
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                 ) {
                     Text(
-                        text = if (showMoreTools) "▴ Скрыть дополнительные утилиты" else "▾ Дополнительно (Приложение, Сценарий, WoL, CIDR, MTU)",
+                        text = if (showMoreTools) "▴ Скрыть дополнительные утилиты" else "▾ Дополнительно (Сценарий, WoL, CIDR, MTU, STUN)",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -293,10 +287,7 @@ fun ToolsScreen(
             if (showMoreTools) {
                 items(extraTools, key = { "tool_extra_${it.name}" }) { tool ->
                     OutlinedCard(
-                        onClick = {
-                            onSelectTool(tool)
-                            showGridMenu = false
-                        },
+                        onClick = { onSelectTool(tool) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, WhyNetColors.Border.copy(alpha = 0.7f)),
