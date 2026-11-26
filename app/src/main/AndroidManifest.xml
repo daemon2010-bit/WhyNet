@@ -27,6 +27,8 @@
         <package android:name="org.telegram.messenger" />
         <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
+        <package android:name="com.adguard.android" />
+        <package android:name="com.adguard.vpn" />
     </queries>
 
     <application

@@ -1,5 +1,11 @@
 package dev.whynet.app.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -26,14 +32,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +56,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
@@ -63,6 +73,7 @@ import dev.whynet.app.ui.theme.WhyNetColors
 import dev.whynet.app.ui.theme.tr
 import dev.whynet.core.engine.ReportFormatter
 import dev.whynet.core.model.DiagnosticSession
+import dev.whynet.core.model.TargetType
 import dev.whynet.core.model.NetworkSnapshot
 import dev.whynet.core.model.ProbeResult
 import dev.whynet.core.model.RecommendedAction
@@ -398,6 +409,27 @@ fun CheckScreen(
                     onShareReport = { onShareReport(session) },
                     onOpenIssueReport = onOpenIssueReport,
                 )
+            }
+
+            val vpnOrFilterActive = session.snapshot.activeExternalVpn || (effectiveSnapshot?.activeExternalVpn == true)
+            val isWebsiteIssue = session.target.type == TargetType.WEBSITE &&
+                session.verdict.category != VerdictCategory.HEALTHY
+            val isVpnInterference = session.verdict.category == VerdictCategory.LOCAL_VPN_OR_FILTER_INTERFERENCE
+            if (vpnOrFilterActive && (isWebsiteIssue || isVpnInterference)) {
+                item(key = "v2_adguard_vpn_helper") {
+                    val cleanDomain = session.target.hostOrUrl
+                        .trim()
+                        .removePrefix("https://")
+                        .removePrefix("http://")
+                        .substringBefore('/')
+                        .substringBefore(':')
+                        .lowercase()
+                    AdGuardAndVpnExclusionCard(
+                        domain = cleanDomain,
+                        isWebsiteCheck = session.target.type == TargetType.WEBSITE,
+                        onRecheck = onStartCheck,
+                    )
+                }
             }
         }
 
@@ -922,6 +954,231 @@ private fun StageQuickNote(probe: ProbeResult) {
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+        )
+    }
+}
+
+@Composable
+private fun AdGuardAndVpnExclusionCard(
+    domain: String,
+    isWebsiteCheck: Boolean,
+    onRecheck: () -> Unit,
+) {
+    val context = LocalContext.current
+    val pm = context.packageManager
+    val adguardInstalled = remember { pm.getLaunchIntentForPackage("com.adguard.android") != null }
+    val adguardVpnInstalled = remember { pm.getLaunchIntentForPackage("com.adguard.vpn") != null }
+
+    var showAdGuardDialog by remember { mutableStateOf(false) }
+    var showVpnExclusionDialog by remember { mutableStateOf(false) }
+    val toastDisableVpn = tr("Отключите VPN, вернитесь в WhyNet и нажмите «Проверить»", "Disable VPN, return to WhyNet and tap Check")
+    val toastAdguard = tr("Домен $domain скопирован - вставьте в Белый список / HTTPS-исключения", "Copied $domain - paste into Allowlist / HTTPS exclusions")
+    val toastVpn = tr("Домен $domain скопирован - добавьте его в Исключения VPN", "Copied $domain - add it to VPN Exclusions")
+
+    fun copyToClipboard(text: String) {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("WhyNet Domain", text))
+    }
+
+    fun openPackageOrSettings(pkg: String, fallbackAction: String) {
+        val launch = pm.getLaunchIntentForPackage(pkg)
+        if (launch != null) {
+            runCatching { context.startActivity(launch) }
+        } else {
+            runCatching { context.startActivity(Intent(fallbackAction)) }
+                .onFailure { runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) } }
+        }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Text(
+                text = tr(
+                    "Обнаружен активный VPN / фильтр (AdGuard)",
+                    "Active VPN / filter detected (AdGuard)",
+                ),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = if (isWebsiteCheck && domain.isNotBlank()) {
+                    tr(
+                        "Сайт $domain может блокироваться фильтрами AdGuard (HTTPS-фильтрация / антитрекинг) или маршрутом VPN. Добавьте его в исключения или временно отключите VPN для перепроверки.",
+                        "$domain may be blocked by AdGuard filters (HTTPS filtering / tracking protection) or VPN routing. Add it to exclusions or disable VPN to retest.",
+                    )
+                } else {
+                    tr(
+                        "На текущей сети активен VPN или локальный фильтр. Попробуйте временно отключить его и повторить проверку.",
+                        "An active VPN or local filter is running. Try disabling it temporarily and re-running the check.",
+                    )
+                },
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            if (isWebsiteCheck && domain.isNotBlank() && adguardInstalled) {
+                Button(
+                    onClick = { showAdGuardDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 7.dp),
+                ) {
+                    Text(
+                        text = tr("Добавить $domain в исключения AdGuard", "Add $domain to AdGuard exclusions"),
+                        fontSize = 11.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (isWebsiteCheck && domain.isNotBlank()) {
+                    OutlinedButton(
+                        onClick = { showVpnExclusionDialog = true },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = tr("В фильтр VPN", "VPN exclusions"),
+                            fontSize = 10.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                OutlinedButton(
+                    onClick = {
+                        Toast.makeText(context, toastDisableVpn, Toast.LENGTH_LONG).show()
+                        runCatching { context.startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }
+                            .onFailure { runCatching { context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) } }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = tr("Отключить VPN", "Disable VPN"),
+                        fontSize = 10.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+
+    if (showAdGuardDialog) {
+        AlertDialog(
+            onDismissRequest = { showAdGuardDialog = false },
+            title = {
+                Text(
+                    tr("Исключение $domain в AdGuard", "Exclude $domain in AdGuard"),
+                    fontSize = 16.sp,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = tr(
+                            "С вашего согласия WhyNet скопирует домен $domain в буфер обмена и откроет AdGuard. Блокировщик рекламы продолжит работать везде, кроме этого сайта:",
+                            "With your consent, WhyNet will copy $domain to clipboard and open AdGuard. Ad blocking will remain active on all other sites:",
+                        ),
+                        fontSize = 12.sp,
+                    )
+                    Text(
+                        text = tr(
+                            "1. Настройки (шестерёнка) - Фильтрация - Белый список сайтов - «+» - Вставить ($domain).\n2. Если сайт РФ (например rzd.ru) всё ещё не грузится: Фильтрация - Сеть - HTTPS-фильтрация - Исключения - «+» - Вставить ($domain).\n3. Вернитесь в WhyNet и нажмите «Проверить».",
+                            "1. Settings - Filtering - Allowlist - '+' - Paste ($domain).\n2. If still blocked: Filtering - Network - HTTPS filtering - Exclusions - '+' - Paste ($domain).\n3. Return to WhyNet and tap Check.",
+                        ),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showAdGuardDialog = false
+                        copyToClipboard(domain)
+                        Toast.makeText(context, toastAdguard, Toast.LENGTH_LONG).show()
+                        openPackageOrSettings("com.adguard.android", Settings.ACTION_VPN_SETTINGS)
+                    },
+                ) {
+                    Text(tr("Скопировать и открыть AdGuard", "Copy & open AdGuard"))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAdGuardDialog = false }) {
+                    Text(tr("Отмена", "Cancel"))
+                }
+            },
+        )
+    }
+
+    if (showVpnExclusionDialog) {
+        AlertDialog(
+            onDismissRequest = { showVpnExclusionDialog = false },
+            title = {
+                Text(
+                    tr("Исключение $domain в VPN", "Exclude $domain in VPN"),
+                    fontSize = 16.sp,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = tr(
+                            "WhyNet скопирует домен $domain в буфер обмена и откроет ${if (adguardVpnInstalled) "AdGuard VPN" else "настройки VPN"}:",
+                            "WhyNet will copy $domain to clipboard and open ${if (adguardVpnInstalled) "AdGuard VPN" else "VPN settings"}:",
+                        ),
+                        fontSize = 12.sp,
+                    )
+                    Text(
+                        text = tr(
+                            "1. Откройте раздел «Исключения» (Split Tunneling / Белый список).\n2. Нажмите «+» и вставьте $domain, чтобы сайт шёл напрямую без VPN.\n3. Либо временно отключите VPN и повторите проверку в WhyNet.",
+                            "1. Open Exclusions (Split Tunneling).\n2. Tap '+' and paste $domain so it bypasses VPN.\n3. Or disable VPN temporarily and retest in WhyNet.",
+                        ),
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showVpnExclusionDialog = false
+                        copyToClipboard(domain)
+                        Toast.makeText(context, toastVpn, Toast.LENGTH_LONG).show()
+                        if (adguardVpnInstalled) {
+                            openPackageOrSettings("com.adguard.vpn", Settings.ACTION_VPN_SETTINGS)
+                        } else {
+                            runCatching { context.startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }
+                        }
+                    },
+                ) {
+                    Text(tr("Скопировать и открыть VPN", "Copy & open VPN"))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVpnExclusionDialog = false }) {
+                    Text(tr("Отмена", "Cancel"))
+                }
+            },
         )
     }
 }
