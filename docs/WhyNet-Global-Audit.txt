@@ -1,49 +1,102 @@
-# Глобальный аудит сети, операторов, ТСПУ и AdGuard/VPN (WhyNet v2.0+)
+# Глобальный аудит сети, операторов, ТСПУ, AdGuard и AdGuard VPN (WhyNet v2.0+)
+# Всего 82 проверки: базовая сеть, UDP/STUN, MTU, трассировки, Wi-Fi, РФ-эталоны,
+# проблемные сайты для AdGuard/VPN (госсервисы, банки, ритейл, транспорт, кино, операторы),
+# CDN/игры/ТСПУ, а также инструментальные пробы DNS и двойного SNI по пулу сайтов.
+#
 # Как запустить:
 #   1. Откройте WhyNet -> Утилиты -> Дополнительно -> Сценарий (.txt)
-#   2. Нажмите «Загрузить файл» и выберите этот файл (WhyNet-Global-Audit.txt)
+#   2. Нажмите «Загрузить файл» и выберите WhyNet-Global-Audit.txt
 #   3. Укажите тег среды (например: Дом Wi-Fi + AdGuard, МТС 4G, МегаФон 4G + VPN)
-#   4. Нажмите «Запустить сценарий» (займёт примерно 3-4 минуты)
-#   5. Повторите прогон на второй сети (Wi-Fi и мобильный интернет)
-#   6. Перейдите в «История» (вверху на главном экране) -> отметьте отчёты или нажмите «Отправить все отчёты» (ZIP)
-@name Глобальный аудит WhyNet (РФ + AdGuard/VPN + ТСПУ)
+#   4. Нажмите «Запустить сценарий» (займёт примерно 5-7 минут)
+#   5. Повторите на второй сети (Wi-Fi и мобильный интернет / другие операторы)
+#   6. В «Истории» (вверху на главном экране) нажмите «Отправить все отчёты» (ZIP)
+@name Глобальный аудит WhyNet (82 шага: РФ + AdGuard/VPN + ТСПУ + инструменты)
 @tag auto
 
 # --- 1. Базовая сеть, БС/Wi-Fi, UDP/STUN, MTU, трассировка ---
 network | ya.ru | ANY | Полная проверка базовой сети (БС/Wi-Fi, IP, DNS, TCP, TLS, HTTP, UDP)
 calls | ya.ru | ANY | Звонки, игры и P2P (UDP/STUN, NAT/CGNAT)
-mtu | 1.1.1.1 | ANY | Поиск Path MTU (проверка фрагментации и туннеля VPN)
+udp | | ANY | Прямой UDP/STUN тест
+mtu | 1.1.1.1 | ANY | Поиск Path MTU (зарубеж / VPN-туннель)
+mtu | ya.ru | ANY | Поиск Path MTU (РФ)
 traceroute | ya.ru | ANY | Трассировка маршрута (РФ) + TCP :443 фолбэк
+traceroute | onlinetrade.ru | ANY | Трассировка до проблемного ритейла (onlinetrade.ru)
 traceroute | 1.1.1.1 | ANY | Трассировка маршрута (Cloudflare) + TCP :443 фолбэк
 wifi | | ANY | Скан Wi-Fi эфира (2.4/5/6 ГГц, помехи, каналы)
 
-# --- 2. РФ-эталоны (база) ---
+# --- 2. РФ-эталоны ---
 site | ya.ru | OK | Эталон РФ (Яндекс)
 site | vk.com | OK | Эталон РФ (VK)
 site | max.ru | OK | Эталон РФ (MAX)
 
-# --- 3. Проблемные сайты для AdGuard (сертификаты Минцифры / HTTPS-фильтрация / блок VPN) ---
-site | yoomoney.ru | ANY | ЮMoney (HTTPS-фильтрация AdGuard / VPN)
+# --- 3. Госсервисы и Минцифры (HTTPS-фильтрация AdGuard + блок VPN) ---
 site | gosuslugi.ru | ANY | Госуслуги (сертификат Минцифры + блок VPN)
 site | esia.gosuslugi.ru | ANY | ЕСИА авторизация Госуслуг
 site | nalog.gov.ru | ANY | ФНС (сертификат Минцифры + блок VPN)
-site | sberbank.ru | ANY | Сбербанк (сертификат Минцифры)
-site | online.sberbank.ru | ANY | Сбербанк Онлайн (HTTPS-фильтрация / VPN)
-site | rzd.ru | ANY | РЖД голый домен (проверка www-фолбэка)
-site | www.rzd.ru | ANY | РЖД с www (сертификат / антибот)
-site | pochta.ru | ANY | Почта России (блок зарубежных IP / VPN)
+site | lkfl2.nalog.ru | ANY | Личный кабинет ФНС
 site | mos.ru | ANY | Mos.ru (блок VPN / сертификат)
+site | pochta.ru | ANY | Почта России (блок VPN)
+site | fssp.gov.ru | ANY | ФССП (сертификат Минцифры)
+site | sfr.gov.ru | ANY | СФР (ПФР/ФСС)
+site | dom.gosuslugi.ru | ANY | ГИС ЖКХ
+site | pub.fsa.gov.ru | ANY | ФСА (SPA + API)
 
-# --- 4. Маркетплейсы, банки и медиа (блок AdGuard VPN / антибот) ---
-site | ozon.ru | ANY | Ozon (антибот + блок VPN)
-site | wildberries.ru | ANY | Wildberries (блок VPN / CDN)
-site | avito.ru | ANY | Avito (жёсткий блок VPN / антибот)
-site | kinopoisk.ru | ANY | Кинопоиск (геоблок под VPN)
+# --- 4. Банки и платёжки (сертификаты Минцифры / EV + блок VPN / антибот) ---
+site | yoomoney.ru | ANY | ЮMoney (HTTPS-фильтрация / VPN)
+site | sberbank.ru | ANY | Сбербанк (сертификат Минцифры)
+site | online.sberbank.ru | ANY | Сбербанк Онлайн
 site | tbank.ru | ANY | Т-Банк (блок VPN)
 site | vtb.ru | ANY | ВТБ (сертификат Минцифры)
 site | alfabank.ru | ANY | Альфа-Банк
+site | raiffeisen.ru | ANY | Райффайзенбанк
+site | gazprombank.ru | ANY | Газпромбанк
+site | psbank.ru | ANY | ПСБ (сертификат Минцифры)
+site | sovcombank.ru | ANY | Совкомбанк
+site | nspk.ru | ANY | НСПК / СБП
 
-# --- 5. CDN, облака, игры и ТСПУ / белые списки ---
+# --- 5. Ритейл и электроника (жёсткий антибот QRator/DDoS-Guard + AdGuard/VPN) ---
+site | onlinetrade.ru | ANY | ОнлайнТрейд (антибот + AdGuard/VPN)
+site | dns-shop.ru | ANY | DNS-Shop (жёсткий антибот QRator + VPN)
+site | citilink.ru | ANY | Ситилинк (антибот + блок VPN)
+site | mvideo.ru | ANY | М.Видео (блок VPN)
+site | eldorado.ru | ANY | Эльдорадо (блок VPN)
+site | ozon.ru | ANY | Ozon (антибот + блок VPN)
+site | wildberries.ru | ANY | Wildberries (блок VPN / CDN)
+site | avito.ru | ANY | Avito (жёсткий блок VPN / антибот)
+site | market.yandex.ru | ANY | Яндекс Маркет
+site | megamarket.ru | ANY | Мегамаркет
+site | vseinstrumenti.ru | ANY | ВсеИнструменты (антибот)
+site | lemanapro.ru | ANY | Лемана ПРО (бывш. Леруа)
+site | petrovich.ru | ANY | Петрович
+site | detmir.ru | ANY | Детский мир
+site | 5ka.ru | ANY | Пятёрочка
+site | perekrestok.ru | ANY | Перекрёсток
+site | magnit.ru | ANY | Магнит
+
+# --- 6. Транспорт, авиа, доставка ---
+site | rzd.ru | ANY | РЖД голый домен (тест www-фолбэка)
+site | www.rzd.ru | ANY | РЖД с www (сертификат / антибот)
+site | aeroflot.ru | ANY | Аэрофлот (блок VPN)
+site | s7.ru | ANY | S7 Airlines (блок VPN)
+site | pobeda.aero | ANY | Победа (антибот + VPN)
+site | tutu.ru | ANY | Туту.ру
+site | cdek.ru | ANY | СДЭК (антибот + VPN)
+site | aviasales.ru | ANY | Авиасейлс
+
+# --- 7. Кинотеатры, медиа и операторы связи ---
+site | kinopoisk.ru | ANY | Кинопоиск (геоблок VPN)
+site | ivi.ru | ANY | Иви (геоблок VPN)
+site | okko.tv | ANY | Okko (геоблок VPN)
+site | wink.ru | ANY | Wink (геоблок VPN)
+site | rutube.ru | ANY | RuTube (антиреклама AdGuard)
+site | mts.ru | ANY | МТС (ЛК под VPN)
+site | megafon.ru | ANY | МегаФон (ЛК под VPN)
+site | beeline.ru | ANY | Билайн (ЛК под VPN)
+site | t2.ru | ANY | T2 / Tele2 (ЛК под VPN)
+site | yota.ru | ANY | Yota (ЛК под VPN)
+site | rt.ru | ANY | Ростелеком
+
+# --- 8. CDN, облака, игры, ИИ и ТСПУ / белые списки ---
 site | cloudflare.com | ANY | Cloudflare CDN
 site | dwd665skciqzl.cloudfront.net | ANY | AWS CloudFront (порог 16 КБ / DROP TLS)
 site | github.com | ANY | GitHub
@@ -54,11 +107,16 @@ site | discord.com | ANY | Discord (DPI / SNI)
 site | web.telegram.org | ANY | Telegram Web
 site | chatgpt.com | ANY | ChatGPT (Cloudflare / гео)
 site | gemini.google.com | ANY | Google Gemini (регион)
+site | chat.qwen.ai | ANY | Qwen AI
 
-# --- 6. Точечные проверки DNS, двойного SNI и UDP ---
-dns | ya.ru | OK | Сравнение Системный DNS vs DoH (РФ)
-dns | yoomoney.ru | ANY | Проверка DNS на ЮMoney
-dns | youtube.com | ANY | Проверка подмены DNS на YouTube
-sni | login.live.com | ANY | Двойной SNI-тест (DPI)
+# --- 9. Инструментальные проверки DNS и двойного SNI на пуле сайтов ---
+dns | ya.ru | OK | DNS vs DoH (РФ эталон)
+dns | onlinetrade.ru | ANY | DNS vs DoH (onlinetrade.ru)
+dns | yoomoney.ru | ANY | DNS vs DoH (yoomoney.ru)
+dns | gosuslugi.ru | ANY | DNS vs DoH (gosuslugi.ru)
+dns | youtube.com | ANY | DNS vs DoH (проверка подмены YouTube)
+sni | onlinetrade.ru | ANY | Двойной SNI-тест (onlinetrade.ru)
+sni | yoomoney.ru | ANY | Двойной SNI-тест (yoomoney.ru)
+sni | login.live.com | ANY | Двойной SNI-тест (DPI эталон)
 sni | youtube.com | ANY | Двойной SNI-тест (YouTube)
-udp | | ANY | Прямой UDP/STUN тест
+sni | discord.com | ANY | Двойной SNI-тест (Discord)
