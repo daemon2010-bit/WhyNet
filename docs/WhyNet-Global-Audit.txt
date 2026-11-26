@@ -96,7 +96,18 @@ site | t2.ru | ANY | T2 / Tele2 (ЛК под VPN)
 site | yota.ru | ANY | Yota (ЛК под VPN)
 site | rt.ru | ANY | Ростелеком
 
-# --- 8. CDN, облака, игры, ИИ и ТСПУ / белые списки ---
+# --- 8. Крымские и региональные сайты (белые списки мобильных операторов + жёсткий блок VPN) ---
+site | rncb.ru | ANY | РНКБ (Крым, сертификат + блок VPN / моб. сети)
+site | genbank.ru | ANY | Генбанк (Крым, блок VPN / моб. сети)
+site | volnamobile.ru | ANY | Волна мобайл (Крым)
+site | mobile-win.ru | ANY | Win Mobile (Крым)
+site | grandtrain.ru | ANY | Гранд Сервис Экспресс (поезда в Крым)
+site | rk.gov.ru | ANY | Портал Республики Крым (блок VPN / моб. белые списки)
+site | sev.gov.ru | ANY | Правительство Севастополя
+site | crimea-energy.ru | ANY | Крымэнерго
+site | mfc82.ru | ANY | МФЦ Крыма
+
+# --- 9. CDN, облака, игры, ИИ и ТСПУ / белые списки ---
 site | cloudflare.com | ANY | Cloudflare CDN
 site | dwd665skciqzl.cloudfront.net | ANY | AWS CloudFront (порог 16 КБ / DROP TLS)
 site | github.com | ANY | GitHub
