@@ -52,6 +52,8 @@ import dev.whynet.core.engine.TestSuiteDefinition
 import dev.whynet.core.engine.WifiApSample
 import dev.whynet.core.engine.WifiChannelAnalyzer
 import dev.whynet.core.engine.WifiHeatmapEngine
+import dev.whynet.core.model.CapabilityState
+import dev.whynet.core.model.ConfidenceLevel
 import dev.whynet.core.model.DiagnosticSession
 import dev.whynet.core.model.DiagnosticTarget
 import dev.whynet.core.model.NetworkSnapshot
@@ -60,6 +62,8 @@ import dev.whynet.core.model.ProbeStatus
 import dev.whynet.core.model.StageId
 import dev.whynet.core.model.TargetType
 import dev.whynet.core.model.TracerouteHop
+import dev.whynet.core.model.Verdict
+import dev.whynet.core.model.VerdictCategory
 import dev.whynet.core.probes.BufferbloatReport
 import dev.whynet.core.probes.DiagnosticOrchestrator
 import dev.whynet.core.probes.DiagnosticRunEvent
@@ -616,6 +620,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isRunning = false,
                 lastProbe = null,
                 tracerouteHops = emptyList(),
+                portScanReport = null,
+                dnsProReport = null,
+                whoisReport = null,
                 wifiError = null,
                 liveNote = null,
                 wolStatus = null,
@@ -738,6 +745,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ToolKind.DNS_COMPARE -> {
                         val result = probes.runDnsCompareProbe(host, net, onProgress = progress)
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, lastProbe = result) }
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "DNS vs DoH: $host",
+                            hostOrUrl = host,
+                            headline = result.summary,
+                            explanation = result.rawDetails.orEmpty().ifBlank { result.summary },
+                            isProblem = result.status != ProbeStatus.SUCCESS,
+                            probesList = listOf(result),
+                        )
                     }
                     ToolKind.DUAL_SNI -> {
                         val dns = probes.runDnsCompareProbe(host, net, onProgress = progress).dnsCompare
@@ -747,13 +763,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         } else {
                             ProbeResult(
                                 stage = StageId.TLS_SNI,
-                                status = dev.whynet.core.model.ProbeStatus.NETWORK_FAILURE,
+                                status = ProbeStatus.NETWORK_FAILURE,
                                 startedAtEpochMs = System.currentTimeMillis(),
                                 durationMs = 0,
                                 summary = "Не удалось получить IP для $host",
                             )
                         }
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, lastProbe = result) }
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "Двойной SNI: $host",
+                            hostOrUrl = host,
+                            headline = result.summary,
+                            explanation = result.rawDetails.orEmpty().ifBlank { result.summary },
+                            isProblem = result.status != ProbeStatus.SUCCESS,
+                            probesList = listOf(result),
+                        )
                     }
                     ToolKind.TRACEROUTE -> {
                         val result = probes.runTracerouteProbe(
@@ -765,6 +790,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             },
                         )
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, lastProbe = result) }
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "Трассировка: $host",
+                            hostOrUrl = host,
+                            headline = result.summary,
+                            explanation = result.rawDetails.orEmpty().ifBlank { result.summary },
+                            isProblem = result.status != ProbeStatus.SUCCESS,
+                            probesList = listOf(result),
+                        )
                     }
                     ToolKind.MTU_SEARCH -> {
                         val result = probes.runMtuProbe(
@@ -773,10 +807,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             onProgress = progress,
                         )
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, lastProbe = result) }
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "MTU: $host",
+                            hostOrUrl = host,
+                            headline = result.summary,
+                            explanation = result.rawDetails.orEmpty().ifBlank { result.summary },
+                            isProblem = result.status != ProbeStatus.SUCCESS,
+                            probesList = listOf(result),
+                        )
                     }
                     ToolKind.UDP_STUN -> {
                         val result = probes.runUdpStunProbe(onProgress = progress)
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, lastProbe = result) }
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "UDP / STUN",
+                            hostOrUrl = "stun.l.google.com",
+                            headline = result.summary,
+                            explanation = result.rawDetails.orEmpty().ifBlank { result.summary },
+                            isProblem = result.status != ProbeStatus.SUCCESS,
+                            probesList = listOf(result),
+                        )
                     }
                     ToolKind.PORT_SCANNER -> {
                         val ports = NetToolsMath.parsePortList(_toolsState.value.portSpec)
@@ -784,7 +836,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             progress("Проверено портов: $done / $total...")
                         }
                         if (res.isSuccess) {
-                            _toolsState.update { it.copy(isRunning = false, liveNote = null, portScanReport = res.getOrThrow()) }
+                            val rep = res.getOrThrow()
+                            _toolsState.update { it.copy(isRunning = false, liveNote = null, portScanReport = rep) }
+                            val openStr = if (rep.openPorts.isEmpty()) "Открытых портов нет" else rep.openPorts.joinToString { "${it.port} (${it.serviceName})" }
+                            saveToolSessionToHistory(
+                                snap = snap,
+                                label = "Порты: $host",
+                                hostOrUrl = host,
+                                headline = "Открыто ${rep.openPorts.size} из ${rep.scannedCount} портов (${rep.durationMs} мс)",
+                                explanation = openStr,
+                                isProblem = false,
+                                durationMs = rep.durationMs,
+                            )
                         } else {
                             _toolsState.update { it.copy(isRunning = false, liveNote = "Ошибка: ${res.exceptionOrNull()?.message}") }
                         }
@@ -793,6 +856,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         progress("Проверяем контуры РФ, порог 16 КБ, CloudFront, Cloudflare, YouTube, Discord...")
                         val rep = pingToolsProbes.runTspuAndContoursTest()
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, tspuReport = rep) }
+                        val details = rep.entries.joinToString("\n") { "${it.label}: ${it.status} (${it.detail})" }
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "Тест ТСПУ",
+                            hostOrUrl = "contours",
+                            headline = rep.verdict,
+                            explanation = "${rep.recommendation}\n$details",
+                            isProblem = rep.looksLikeWhitelist || rep.entries.any { it.status == "FAIL" },
+                            durationMs = rep.durationMs,
+                        )
                     }
                     ToolKind.SERVICE_LATENCY -> {
                         val custom = host.takeIf { it.isNotBlank() && it != "1.1.1.1" && it != "ya.ru" }
@@ -802,6 +875,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             progress("Цикл #$cycle: замеряем отклик сервисов (обновление каждые 2 с)...")
                             val list = pingToolsProbes.probeServicesLatency(custom)
                             _toolsState.update { it.copy(serviceLatencies = list) }
+                            if (cycle == 1) {
+                                val okCnt = list.count { it.isOk }
+                                val details = list.joinToString("\n") { "${it.name} (${it.host}): ${it.rttMs?.let { m -> "${m} мс" } ?: "TIMEOUT"}" }
+                                saveToolSessionToHistory(
+                                    snap = snap,
+                                    label = "Задержка сервисов",
+                                    hostOrUrl = "services",
+                                    headline = "Доступно $okCnt из ${list.size} сервисов",
+                                    explanation = details,
+                                    isProblem = okCnt < list.size,
+                                )
+                            }
                             delay(2000L)
                         }
                     }
@@ -809,18 +894,48 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         progress("Опрашиваем Яндекс, AdGuard, Google, Quad9, Cloudflare и системный DNS...")
                         val rep = pingToolsProbes.runMassDnsBenchmark(host.ifBlank { "ya.ru" })
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, massDnsReport = rep) }
+                        val details = rep.entries.joinToString("\n") { "${it.name} (${it.serverIp}): ${it.note}" }
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "Массовые DNS: ${rep.testDomain}",
+                            hostOrUrl = rep.testDomain,
+                            headline = rep.summary,
+                            explanation = details,
+                            isProblem = rep.entries.none { it.isOk },
+                            durationMs = rep.durationMs,
+                        )
                     }
                     ToolKind.DNS_PRO -> {
                         progress("Запрашиваем DNS-записи и WHOIS / Geo / ASN для $host...")
                         val rep = pingToolsProbes.runDnsLookupPro(host)
                         val whois = pingToolsProbes.lookupWhoisIp(host).getOrNull()
                         _toolsState.update { it.copy(isRunning = false, liveNote = null, dnsProReport = rep, whoisReport = whois) }
+                        val details = rep.records.joinToString("\n") { "${it.type} ${it.value}" } +
+                            (whois?.let { "\nWHOIS: ${it.resolvedIp} · ${it.asn ?: ""} · ${it.isp ?: ""} · ${it.country ?: ""}" }.orEmpty())
+                        saveToolSessionToHistory(
+                            snap = snap,
+                            label = "DNS + WHOIS: $host",
+                            hostOrUrl = host,
+                            headline = "${rep.records.size} DNS-записей (${rep.durationMs} мс)",
+                            explanation = details.ifBlank { rep.error ?: "Записи не найдены" },
+                            isProblem = rep.records.isEmpty(),
+                            durationMs = rep.durationMs,
+                        )
                     }
                     ToolKind.WHOIS_IP -> {
                         progress("Запрашиваем Geo/ASN и RDAP для $host...")
                         val res = pingToolsProbes.lookupWhoisIp(host)
                         if (res.isSuccess) {
-                            _toolsState.update { it.copy(isRunning = false, liveNote = null, whoisReport = res.getOrThrow()) }
+                            val rep = res.getOrThrow()
+                            _toolsState.update { it.copy(isRunning = false, liveNote = null, whoisReport = rep) }
+                            saveToolSessionToHistory(
+                                snap = snap,
+                                label = "WHOIS: $host",
+                                hostOrUrl = host,
+                                headline = "${rep.resolvedIp} · ${rep.isp ?: rep.asn ?: "OK"}",
+                                explanation = listOfNotNull(rep.asn, rep.isp, rep.country, rep.city, rep.cidr).joinToString(" · "),
+                                isProblem = false,
+                            )
                         } else {
                             _toolsState.update { it.copy(isRunning = false, liveNote = "Ошибка: ${res.exceptionOrNull()?.message}") }
                         }
@@ -828,7 +943,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ToolKind.BUFFERBLOAT -> {
                         val res = pingToolsProbes.runBufferbloatAndSpeedTest(snap.gatewayIp, onProgress = progress)
                         if (res.isSuccess) {
-                            _toolsState.update { it.copy(isRunning = false, liveNote = null, bufferbloatReport = res.getOrThrow()) }
+                            val rep = res.getOrThrow()
+                            _toolsState.update { it.copy(isRunning = false, liveNote = null, bufferbloatReport = rep) }
+                            saveToolSessionToHistory(
+                                snap = snap,
+                                label = "Скорость / Bufferbloat",
+                                hostOrUrl = rep.testServer,
+                                headline = "${"%.1f".format(rep.downloadMbps)} Мбит/с · Оценка ${rep.grade}",
+                                explanation = "${rep.verdict}\nСервер: ${rep.testServer}\nПинг покой/нагрузка: ${rep.idleExternalMs?.let { "%.0f".format(it) } ?: "-"} / ${rep.loadedExternalMs?.let { "%.0f".format(it) } ?: "-"} мс",
+                                isProblem = rep.grade == "D" || rep.grade == "F" || rep.downloadMbps <= 0.1,
+                            )
                         } else {
                             _toolsState.update { it.copy(isRunning = false, liveNote = "Ошибка: ${res.exceptionOrNull()?.message}") }
                         }
@@ -846,6 +970,65 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _toolsState.update { it.copy(isRunning = false) }
             }
+        }
+    }
+
+    private suspend fun saveToolSessionToHistory(
+        snap: NetworkSnapshot?,
+        label: String,
+        hostOrUrl: String,
+        headline: String,
+        explanation: String,
+        isProblem: Boolean,
+        durationMs: Long = 0L,
+        probesList: List<ProbeResult> = emptyList(),
+    ) {
+        runCatching {
+            val now = System.currentTimeMillis()
+            val actualSnap = snap ?: _checkState.value.liveSnapshot ?: envCollector.collectSnapshot(fetchExternalIp = false)
+            val effectiveProbes = if (probesList.isNotEmpty()) {
+                probesList
+            } else {
+                listOf(
+                    ProbeResult(
+                        stage = StageId.HTTP_PAYLOAD,
+                        status = if (isProblem) ProbeStatus.NETWORK_FAILURE else ProbeStatus.SUCCESS,
+                        startedAtEpochMs = now,
+                        durationMs = durationMs,
+                        summary = headline,
+                        rawDetails = explanation,
+                    ),
+                )
+            }
+            val session = DiagnosticSession(
+                sessionId = java.util.UUID.randomUUID().toString(),
+                createdAtEpochMs = now,
+                appVersion = BuildConfig.VERSION_NAME,
+                rulesVersion = "tool-v2",
+                deviceSummary = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+                androidApiLevel = android.os.Build.VERSION.SDK_INT,
+                target = DiagnosticTarget(
+                    type = TargetType.NETWORK_HEALTH,
+                    hostOrUrl = hostOrUrl,
+                    label = label,
+                ),
+                capabilities = CapabilityState(),
+                snapshot = actualSnap,
+                probes = effectiveProbes,
+                verdict = Verdict(
+                    category = if (isProblem) VerdictCategory.UNKNOWN else VerdictCategory.HEALTHY,
+                    confidence = ConfidenceLevel.PROBABLE,
+                    ruleId = "TOOL_REPORT",
+                    ruleVersion = "2.0",
+                    headline = headline,
+                    explanation = explanation,
+                    confirmedFacts = listOf(headline),
+                    hypotheses = emptyList(),
+                    unknowns = emptyList(),
+                    recommendedActions = emptyList(),
+                ),
+            )
+            repository.save(session)
         }
     }
 
@@ -993,6 +1176,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             lastRunRecord = record,
                         )
                     }
+                    val okCnt = collected.count { it.outcome == SuiteStepOutcome.OK }
+                    saveToolSessionToHistory(
+                        snap = snapAfter ?: snapBefore,
+                        label = "Сценарий: ${suite.name}",
+                        hostOrUrl = suite.name,
+                        headline = "Выполнено ${collected.size}/${suite.steps.size} (успешно $okCnt)",
+                        explanation = collected.joinToString("\n") { "[${it.step.kind.name}] ${it.step.target.ifBlank { "Wi-Fi" }}: ${it.outcome} - ${it.headline}" },
+                        isProblem = okCnt < collected.size,
+                    )
                 }
             }
         }
@@ -1378,6 +1570,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             summaryText = "${summary.title}. ${summary.explanation}",
                         )
                     }
+                    saveToolSessionToHistory(
+                        snap = snapAfter ?: snapBefore,
+                        label = "Приложение: $label",
+                        hostOrUrl = domains.firstOrNull() ?: label,
+                        headline = summary.title,
+                        explanation = "${summary.explanation}\nДомены: ${domains.joinToString(", ")}",
+                        isProblem = collected.any { it.outcome != SuiteStepOutcome.OK },
+                    )
                 }
             }
         }

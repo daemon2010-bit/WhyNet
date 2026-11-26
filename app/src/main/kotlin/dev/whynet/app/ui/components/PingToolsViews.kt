@@ -136,23 +136,6 @@ fun PortScannerToolView(
                 }
             }
         }
-
-        state.whoisReport?.let { w ->
-            CompactToolCard {
-                Text(
-                    text = "WHOIS / Geo · ${w.resolvedIp}",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
-                w.asn?.let { KeyValLine("ASN", it) }
-                w.isp?.let { KeyValLine("Провайдер", it) }
-                w.country?.takeIf { it.isNotBlank() }?.let { c ->
-                    KeyValLine("Локация", c + (w.city?.takeIf { it.isNotBlank() }?.let { ", $it" } ?: ""))
-                }
-            }
-        }
     }
 }
 

@@ -966,9 +966,31 @@ class NetworkProbes(
             }
             if (parsed.responderIp == null) {
                 consecutiveStars++
-                if (ttl >= 5 && consecutiveStars >= 4) break
+                if (ttl >= 8 && consecutiveStars >= 6) break
             } else {
                 consecutiveStars = 0
+            }
+        }
+
+        if (!reached && pingSupported) {
+            // Если ICMP на маршруте скрыт (например, AdGuard/VPN или CGNAT), проверяем саму цель по TCP :443
+            val tcpT0 = System.nanoTime()
+            val tcpOk = runCatching {
+                Socket().use { s -> s.connect(InetSocketAddress(resolvedIp, 443), 1800) }
+                true
+            }.getOrDefault(false)
+            if (tcpOk) {
+                val tcpMs = (System.nanoTime() - tcpT0) / 1_000_000.0
+                val finalHop = TracerouteHop(
+                    ttl = hops.size + 1,
+                    ip = resolvedIp,
+                    rttMs = tcpMs,
+                    reachedTarget = true,
+                    note = "Цель доступна по TCP :443 (ICMP скрыт на маршруте)",
+                )
+                hops += finalHop
+                onHop(finalHop)
+                reached = true
             }
         }
 

@@ -392,8 +392,10 @@ fun CheckScreen(
         // 5. Вердикт + Рекомендации "Что сделать" (сразу под графикой!)
         if (session != null && !state.isRunning) {
             item(key = "v2_verdict") {
+                val blockedContours = state.quickContours.filter { it.status == "FAIL" }.map { it.label }
                 VerdictAndAdviceCard(
                     session = session,
+                    blockedContours = blockedContours,
                     onActionClick = onActionClick,
                     onShareReport = { onShareReport(session) },
                     onOpenIssueReport = onOpenIssueReport,
@@ -736,17 +738,19 @@ private fun SmallBadge(text: String, fg: Color, bg: Color) {
 @Composable
 private fun VerdictAndAdviceCard(
     session: DiagnosticSession,
+    blockedContours: List<String> = emptyList(),
     onActionClick: (RecommendedAction) -> Unit,
     onShareReport: () -> Unit,
     onOpenIssueReport: () -> Unit,
 ) {
     val v = session.verdict
-    val (fg, bg, tag) = when (v.category) {
-        VerdictCategory.HEALTHY -> Triple(WhyNetColors.OkGreen, WhyNetColors.OkContainer, "OK")
-        VerdictCategory.LOCAL_LINK_DEGRADATION,
-        VerdictCategory.UDP_BLOCKED_OR_NAT_RESTRICTED,
-        VerdictCategory.UNKNOWN,
-        -> Triple(WhyNetColors.WarnAmber, WhyNetColors.WarnContainer, "ВНИМАНИЕ")
+    val hasContourBlock = v.category == VerdictCategory.HEALTHY && blockedContours.isNotEmpty()
+    val (fg, bg, tag) = when {
+        hasContourBlock -> Triple(WhyNetColors.WarnAmber, WhyNetColors.WarnContainer, "ОГРАНИЧЕНИЯ")
+        v.category == VerdictCategory.HEALTHY -> Triple(WhyNetColors.OkGreen, WhyNetColors.OkContainer, "OK")
+        v.category == VerdictCategory.LOCAL_LINK_DEGRADATION ||
+            v.category == VerdictCategory.UDP_BLOCKED_OR_NAT_RESTRICTED ||
+            v.category == VerdictCategory.UNKNOWN -> Triple(WhyNetColors.WarnAmber, WhyNetColors.WarnContainer, "ВНИМАНИЕ")
         else -> Triple(WhyNetColors.FailRed, WhyNetColors.FailContainer, "ПРОБЛЕМА")
     }
 
@@ -766,7 +770,11 @@ private fun VerdictAndAdviceCard(
             ) {
                 SmallBadge(tag, fg, fg.copy(alpha = 0.18f))
                 Text(
-                    text = v.headline,
+                    text = if (hasContourBlock) {
+                        "Базовая сеть работает, но ограничены: ${blockedContours.joinToString(", ")}"
+                    } else {
+                        v.headline
+                    },
                     fontSize = 12.sp,
                     lineHeight = 15.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -775,7 +783,11 @@ private fun VerdictAndAdviceCard(
                 )
             }
             Text(
-                text = v.explanation,
+                text = if (hasContourBlock) {
+                    "Основной маршрут (РФ) в норме, но зарубежные контуры (${blockedContours.joinToString(", ")}) режутся фильтрацией оператора (ТСПУ) на текущей сети."
+                } else {
+                    v.explanation
+                },
                 fontSize = 11.sp,
                 lineHeight = 14.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
