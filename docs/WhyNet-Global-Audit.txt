@@ -1,133 +1,129 @@
-# Глобальный аудит сети, операторов, ТСПУ, AdGuard и AdGuard VPN (WhyNet v2.0+)
-# Всего 82 проверки: базовая сеть, UDP/STUN, MTU, трассировки, Wi-Fi, РФ-эталоны,
-# проблемные сайты для AdGuard/VPN (госсервисы, банки, ритейл, транспорт, кино, операторы),
-# CDN/игры/ТСПУ, а также инструментальные пробы DNS и двойного SNI по пулу сайтов.
-#
-# Как запустить:
-#   1. Откройте WhyNet -> Утилиты -> Дополнительно -> Сценарий (.txt)
-#   2. Нажмите «Загрузить файл» и выберите WhyNet-Global-Audit.txt
-#   3. Укажите тег среды (например: Дом Wi-Fi + AdGuard, МТС 4G, МегаФон 4G + VPN)
-#   4. Нажмите «Запустить сценарий» (займёт примерно 5-7 минут)
-#   5. Повторите на второй сети (Wi-Fi и мобильный интернет / другие операторы)
-#   6. В «Истории» (вверху на главном экране) нажмите «Отправить все отчёты» (ZIP)
-@name Глобальный аудит WhyNet (82 шага: РФ + AdGuard/VPN + ТСПУ + инструменты)
+# Глобальный аудит WhyNet (дедуплицированный пул: ПК + Телефон + Крым + ТСПУ + Утилиты)
+# Загрузите в WhyNet -> Утилиты -> Дополнительно -> Сценарий (.txt)
+@name Глобальный аудит WhyNet (полный пул без дублей)
 @tag auto
 
-# --- 1. Базовая сеть, БС/Wi-Fi, UDP/STUN, MTU, трассировка ---
-network | ya.ru | ANY | Полная проверка базовой сети (БС/Wi-Fi, IP, DNS, TCP, TLS, HTTP, UDP)
-calls | ya.ru | ANY | Звонки, игры и P2P (UDP/STUN, NAT/CGNAT)
-udp | | ANY | Прямой UDP/STUN тест
-mtu | 1.1.1.1 | ANY | Поиск Path MTU (зарубеж / VPN-туннель)
-mtu | ya.ru | ANY | Поиск Path MTU (РФ)
-traceroute | ya.ru | ANY | Трассировка маршрута (РФ) + TCP :443 фолбэк
-traceroute | onlinetrade.ru | ANY | Трассировка до проблемного ритейла (onlinetrade.ru)
-traceroute | 1.1.1.1 | ANY | Трассировка маршрута (Cloudflare) + TCP :443 фолбэк
-wifi | | ANY | Скан Wi-Fi эфира (2.4/5/6 ГГц, помехи, каналы)
+# --- 1. Базовая сеть, UDP/STUN, MTU, трассировка, Wi-Fi ---
+network | ya.ru | ANY | Полная проверка базовой сети
+calls | ya.ru | ANY | Звонки и P2P (UDP/STUN)
+udp | | ANY | Прямой UDP/STUN
+mtu | 1.1.1.1 | ANY | Path MTU (зарубеж / VPN)
+mtu | ya.ru | ANY | Path MTU (РФ)
+traceroute | ya.ru | ANY | Трассировка (РФ)
+traceroute | onlinetrade.ru | ANY | Трассировка (ритейл)
+traceroute | 1.1.1.1 | ANY | Трассировка (Cloudflare)
+wifi | | ANY | Скан Wi-Fi эфира
 
-# --- 2. РФ-эталоны ---
-site | ya.ru | OK | Эталон РФ (Яндекс)
-site | vk.com | OK | Эталон РФ (VK)
-site | max.ru | OK | Эталон РФ (MAX)
+# --- 2. Все уникальные сайты из мастер-пула ---
+site | ya.ru | ANY | [РФ-эталон] Яндекс (базовый эталон)
+site | yandex.ru | ANY | [РФ-эталон] Яндекс (основной домен)
+site | vk.com | ANY | [РФ-эталон] VK
+site | max.ru | ANY | [РФ-эталон] MAX мессенджер
+site | mail.ru | ANY | [РФ-эталон] Mail.ru
+site | 2gis.ru | ANY | [РФ-эталон] 2ГИС (есть в искл. ПК и телефона)
+site | pikabu.ru | ANY | [РФ-эталон] Пикабу (есть в искл. телефона)
+site | 4pda.to | ANY | [РФ-эталон] 4PDA (есть в искл. ПК)
+site | gosuslugi.ru | ANY | [Госсервисы / Минцифры] Госуслуги (серт. Минцифры + блок VPN)
+site | esia.gosuslugi.ru | ANY | [Госсервисы / Минцифры] ЕСИА авторизация (есть в искл. ПК)
+site | pos.gosuslugi.ru | ANY | [Госсервисы / Минцифры] ПОС Госуслуги (есть в искл. ПК)
+site | nalog.gov.ru | ANY | [Госсервисы / Минцифры] ФНС (серт. Минцифры + блок VPN)
+site | lkfl2.nalog.ru | ANY | [Госсервисы / Минцифры] ЛК ФНС
+site | gov.ru | ANY | [Госсервисы / Минцифры] Гос. порталы .gov.ru (есть в искл. ПК)
+site | mos.ru | ANY | [Госсервисы / Минцифры] Mos.ru (блок VPN)
+site | pochta.ru | ANY | [Госсервисы / Минцифры] Почта России (есть в искл. ПК)
+site | fssp.gov.ru | ANY | [Госсервисы / Минцифры] ФССП (серт. Минцифры)
+site | sfr.gov.ru | ANY | [Госсервисы / Минцифры] СФР (ПФР/ФСС)
+site | dom.gosuslugi.ru | ANY | [Госсервисы / Минцифры] ГИС ЖКХ
+site | pub.fsa.gov.ru | ANY | [Госсервисы / Минцифры] ФСА Росаккредитация (есть в искл. ПК)
+site | consultant.ru | ANY | [Госсервисы / Право] КонсультантПлюс (есть в искл. ПК)
+site | mgsu.ru | ANY | [Образование] МГСУ (есть в искл. ПК)
+site | yoomoney.ru | ANY | [Банки / Платёжки] ЮMoney (ДОКАЗАН сбой под AdGuard VPN!)
+site | sberbank.ru | ANY | [Банки / Платёжки] Сбербанк (серт. Минцифры, есть в искл. ПК и тел.)
+site | online.sberbank.ru | ANY | [Банки / Платёжки] Сбербанк Онлайн (есть в искл. ПК и тел.)
+site | sberchat.sberbank.ru | ANY | [Банки / Платёжки] СберЧат (есть в искл. ПК)
+site | tbank.ru | ANY | [Банки / Платёжки] Т-Банк (есть в искл. ПК и тел.)
+site | vtb.ru | ANY | [Банки / Платёжки] ВТБ (серт. Минцифры)
+site | alfabank.ru | ANY | [Банки / Платёжки] Альфа-Банк
+site | raiffeisen.ru | ANY | [Банки / Платёжки] Райффайзенбанк
+site | gazprombank.ru | ANY | [Банки / Платёжки] Газпромбанк
+site | psbank.ru | ANY | [Банки / Платёжки] ПСБ (серт. Минцифры)
+site | sovcombank.ru | ANY | [Банки / Платёжки] Совкомбанк
+site | nspk.ru | ANY | [Банки / Платёжки] НСПК / СБП
+site | finance.ozon.ru | ANY | [Банки / Платёжки] Ozon Банк (есть в искл. ПК)
+site | onlinetrade.ru | ANY | [Ритейл / Антибот] ОнлайнТрейд
+site | dns-shop.ru | ANY | [Ритейл / Антибот] DNS-Shop (QRator антибот)
+site | citilink.ru | ANY | [Ритейл / Антибот] Ситилинк (антибот + VPN)
+site | compday.ru | ANY | [Ритейл / Антибот] Compday (есть в искл. ПК)
+site | mvideo.ru | ANY | [Ритейл / Антибот] М.Видео (блок VPN)
+site | eldorado.ru | ANY | [Ритейл / Антибот] Эльдорадо (блок VPN)
+site | ozon.ru | ANY | [Ритейл / Антибот] Ozon (есть в искл. ПК и тел.)
+site | wildberries.ru | ANY | [Ритейл / Антибот] Wildberries (есть в искл. ПК и тел.)
+site | avito.ru | ANY | [Ритейл / Антибот] Avito (есть в искл. ПК и тел.)
+site | market.yandex.ru | ANY | [Ритейл / Антибот] Яндекс Маркет
+site | megamarket.ru | ANY | [Ритейл / Антибот] Мегамаркет
+site | vseinstrumenti.ru | ANY | [Ритейл / Антибот] ВсеИнструменты
+site | lemanapro.ru | ANY | [Ритейл / Антибот] Лемана ПРО
+site | petrovich.ru | ANY | [Ритейл / Антибот] Петрович
+site | detmir.ru | ANY | [Ритейл / Антибот] Детский мир
+site | 5ka.ru | ANY | [Ритейл / Антибот] Пятёрочка (есть в искл. ПК и тел.)
+site | perekrestok.ru | ANY | [Ритейл / Антибот] Перекрёсток (есть в искл. ПК)
+site | vkusvill.ru | ANY | [Ритейл / Антибот] ВкусВилл (есть в искл. ПК)
+site | magnit.ru | ANY | [Ритейл / Антибот] Магнит
+site | rzd.ru | ANY | [Транспорт / Доставка] РЖД голый домен (сервер не отвечает на :443)
+site | www.rzd.ru | ANY | [Транспорт / Доставка] РЖД с www (работает с AdGuard)
+site | aeroflot.ru | ANY | [Транспорт / Доставка] Аэрофлот (блок VPN)
+site | s7.ru | ANY | [Транспорт / Доставка] S7 Airlines (блок VPN)
+site | pobeda.aero | ANY | [Транспорт / Доставка] Победа (антибот + VPN)
+site | tutu.ru | ANY | [Транспорт / Доставка] Туту.ру
+site | cdek.ru | ANY | [Транспорт / Доставка] СДЭК (антибот + VPN)
+site | aviasales.ru | ANY | [Транспорт / Доставка] Авиасейлс
+site | kinopoisk.ru | ANY | [Медиа / Кино] Кинопоиск (есть в искл. ПК и тел.)
+site | ivi.ru | ANY | [Медиа / Кино] Иви (геоблок VPN)
+site | okko.tv | ANY | [Медиа / Кино] Okko (есть в искл. ПК)
+site | wink.ru | ANY | [Медиа / Кино] Wink (геоблок VPN)
+site | rutube.ru | ANY | [Медиа / Кино] RuTube (есть в искл. ПК и тел.)
+site | vkvideo.ru | ANY | [Медиа / Кино] VK Видео (есть в искл. тел.)
+site | mts.ru | ANY | [Операторы РФ] МТС
+site | megafon.ru | ANY | [Операторы РФ] МегаФон
+site | beeline.ru | ANY | [Операторы РФ] Билайн
+site | t2.ru | ANY | [Операторы РФ] T2 / Tele2
+site | yota.ru | ANY | [Операторы РФ] Yota
+site | rt.ru | ANY | [Операторы РФ] Ростелеком
+site | rncb.ru | ANY | [Крым / Региональные] РНКБ (серт. Минцифры + геоблок VPN)
+site | genbank.ru | ANY | [Крым / Региональные] Генбанк
+site | volnamobile.ru | ANY | [Крым / Региональные] Волна мобайл
+site | mobile-win.ru | ANY | [Крым / Региональные] Win Mobile
+site | grandtrain.ru | ANY | [Крым / Региональные] Гранд Сервис Экспресс
+site | rk.gov.ru | ANY | [Крым / Региональные] Портал Республики Крым
+site | sev.gov.ru | ANY | [Крым / Региональные] Правительство Севастополя
+site | crimea-energy.ru | ANY | [Крым / Региональные] Крымэнерго
+site | mfc82.ru | ANY | [Крым / Региональные] МФЦ Крыма
+site | cloudflare.com | ANY | [CDN / ТСПУ] Cloudflare CDN
+site | dwd665skciqzl.cloudfront.net | ANY | [CDN / ТСПУ] AWS CloudFront (порог 16 КБ / DROP TLS)
+site | github.com | ANY | [Разработка / CDN] GitHub
+site | store.steampowered.com | ANY | [Игры] Steam (есть в искл. ПК)
+site | epicgames.com | ANY | [Игры] Epic Games (есть в искл. ПК)
+site | gog.com | ANY | [Игры] GOG (есть в искл. ПК)
+site | plati.io | ANY | [Игры / Маркет] Plati.io (есть в искл. ПК)
+site | playhaslimits.com | ANY | [Игры] PlayHasLimits (есть в искл. ПК)
+site | roblox.com | ANY | [Игры] Roblox (UDP / DPI)
+site | youtube.com | ANY | [Видео / ТСПУ] YouTube (DPI SNI; на ПК в искл. из-за Zapret)
+site | discord.com | ANY | [Связь / ТСПУ] Discord (DPI SNI)
+site | web.telegram.org | ANY | [Мессенджер] Telegram Web (есть в искл. ПК и тел.)
+site | zoom.us | ANY | [Связь] Zoom (есть в искл. ПК)
+site | chatgpt.com | ANY | [ИИ] ChatGPT (Cloudflare / гео)
+site | gemini.google.com | ANY | [ИИ] Google Gemini (регион)
+site | chat.qwen.ai | ANY | [ИИ] Qwen AI
 
-# --- 3. Госсервисы и Минцифры (HTTPS-фильтрация AdGuard + блок VPN) ---
-site | gosuslugi.ru | ANY | Госуслуги (сертификат Минцифры + блок VPN)
-site | esia.gosuslugi.ru | ANY | ЕСИА авторизация Госуслуг
-site | nalog.gov.ru | ANY | ФНС (сертификат Минцифры + блок VPN)
-site | lkfl2.nalog.ru | ANY | Личный кабинет ФНС
-site | mos.ru | ANY | Mos.ru (блок VPN / сертификат)
-site | pochta.ru | ANY | Почта России (блок VPN)
-site | fssp.gov.ru | ANY | ФССП (сертификат Минцифры)
-site | sfr.gov.ru | ANY | СФР (ПФР/ФСС)
-site | dom.gosuslugi.ru | ANY | ГИС ЖКХ
-site | pub.fsa.gov.ru | ANY | ФСА (SPA + API)
-
-# --- 4. Банки и платёжки (сертификаты Минцифры / EV + блок VPN / антибот) ---
-site | yoomoney.ru | ANY | ЮMoney (HTTPS-фильтрация / VPN)
-site | sberbank.ru | ANY | Сбербанк (сертификат Минцифры)
-site | online.sberbank.ru | ANY | Сбербанк Онлайн
-site | tbank.ru | ANY | Т-Банк (блок VPN)
-site | vtb.ru | ANY | ВТБ (сертификат Минцифры)
-site | alfabank.ru | ANY | Альфа-Банк
-site | raiffeisen.ru | ANY | Райффайзенбанк
-site | gazprombank.ru | ANY | Газпромбанк
-site | psbank.ru | ANY | ПСБ (сертификат Минцифры)
-site | sovcombank.ru | ANY | Совкомбанк
-site | nspk.ru | ANY | НСПК / СБП
-
-# --- 5. Ритейл и электроника (жёсткий антибот QRator/DDoS-Guard + AdGuard/VPN) ---
-site | onlinetrade.ru | ANY | ОнлайнТрейд (антибот + AdGuard/VPN)
-site | dns-shop.ru | ANY | DNS-Shop (жёсткий антибот QRator + VPN)
-site | citilink.ru | ANY | Ситилинк (антибот + блок VPN)
-site | mvideo.ru | ANY | М.Видео (блок VPN)
-site | eldorado.ru | ANY | Эльдорадо (блок VPN)
-site | ozon.ru | ANY | Ozon (антибот + блок VPN)
-site | wildberries.ru | ANY | Wildberries (блок VPN / CDN)
-site | avito.ru | ANY | Avito (жёсткий блок VPN / антибот)
-site | market.yandex.ru | ANY | Яндекс Маркет
-site | megamarket.ru | ANY | Мегамаркет
-site | vseinstrumenti.ru | ANY | ВсеИнструменты (антибот)
-site | lemanapro.ru | ANY | Лемана ПРО (бывш. Леруа)
-site | petrovich.ru | ANY | Петрович
-site | detmir.ru | ANY | Детский мир
-site | 5ka.ru | ANY | Пятёрочка
-site | perekrestok.ru | ANY | Перекрёсток
-site | magnit.ru | ANY | Магнит
-
-# --- 6. Транспорт, авиа, доставка ---
-site | rzd.ru | ANY | РЖД голый домен (тест www-фолбэка)
-site | www.rzd.ru | ANY | РЖД с www (сертификат / антибот)
-site | aeroflot.ru | ANY | Аэрофлот (блок VPN)
-site | s7.ru | ANY | S7 Airlines (блок VPN)
-site | pobeda.aero | ANY | Победа (антибот + VPN)
-site | tutu.ru | ANY | Туту.ру
-site | cdek.ru | ANY | СДЭК (антибот + VPN)
-site | aviasales.ru | ANY | Авиасейлс
-
-# --- 7. Кинотеатры, медиа и операторы связи ---
-site | kinopoisk.ru | ANY | Кинопоиск (геоблок VPN)
-site | ivi.ru | ANY | Иви (геоблок VPN)
-site | okko.tv | ANY | Okko (геоблок VPN)
-site | wink.ru | ANY | Wink (геоблок VPN)
-site | rutube.ru | ANY | RuTube (антиреклама AdGuard)
-site | mts.ru | ANY | МТС (ЛК под VPN)
-site | megafon.ru | ANY | МегаФон (ЛК под VPN)
-site | beeline.ru | ANY | Билайн (ЛК под VPN)
-site | t2.ru | ANY | T2 / Tele2 (ЛК под VPN)
-site | yota.ru | ANY | Yota (ЛК под VPN)
-site | rt.ru | ANY | Ростелеком
-
-# --- 8. Крымские и региональные сайты (белые списки мобильных операторов + жёсткий блок VPN) ---
-site | rncb.ru | ANY | РНКБ (Крым, сертификат + блок VPN / моб. сети)
-site | genbank.ru | ANY | Генбанк (Крым, блок VPN / моб. сети)
-site | volnamobile.ru | ANY | Волна мобайл (Крым)
-site | mobile-win.ru | ANY | Win Mobile (Крым)
-site | grandtrain.ru | ANY | Гранд Сервис Экспресс (поезда в Крым)
-site | rk.gov.ru | ANY | Портал Республики Крым (блок VPN / моб. белые списки)
-site | sev.gov.ru | ANY | Правительство Севастополя
-site | crimea-energy.ru | ANY | Крымэнерго
-site | mfc82.ru | ANY | МФЦ Крыма
-
-# --- 9. CDN, облака, игры, ИИ и ТСПУ / белые списки ---
-site | cloudflare.com | ANY | Cloudflare CDN
-site | dwd665skciqzl.cloudfront.net | ANY | AWS CloudFront (порог 16 КБ / DROP TLS)
-site | github.com | ANY | GitHub
-site | store.steampowered.com | ANY | Steam (игры)
-site | roblox.com | ANY | Roblox (игры / UDP)
-site | youtube.com | ANY | YouTube (DPI / SNI)
-site | discord.com | ANY | Discord (DPI / SNI)
-site | web.telegram.org | ANY | Telegram Web
-site | chatgpt.com | ANY | ChatGPT (Cloudflare / гео)
-site | gemini.google.com | ANY | Google Gemini (регион)
-site | chat.qwen.ai | ANY | Qwen AI
-
-# --- 9. Инструментальные проверки DNS и двойного SNI на пуле сайтов ---
-dns | ya.ru | OK | DNS vs DoH (РФ эталон)
+# --- 3. Инструментальные проверки DNS и двойного SNI ---
+dns | ya.ru | OK | DNS vs DoH (РФ)
 dns | onlinetrade.ru | ANY | DNS vs DoH (onlinetrade.ru)
 dns | yoomoney.ru | ANY | DNS vs DoH (yoomoney.ru)
-dns | gosuslugi.ru | ANY | DNS vs DoH (gosuslugi.ru)
-dns | youtube.com | ANY | DNS vs DoH (проверка подмены YouTube)
-sni | onlinetrade.ru | ANY | Двойной SNI-тест (onlinetrade.ru)
-sni | yoomoney.ru | ANY | Двойной SNI-тест (yoomoney.ru)
-sni | login.live.com | ANY | Двойной SNI-тест (DPI эталон)
-sni | youtube.com | ANY | Двойной SNI-тест (YouTube)
-sni | discord.com | ANY | Двойной SNI-тест (Discord)
+dns | rncb.ru | ANY | DNS vs DoH (Крым)
+dns | youtube.com | ANY | DNS vs DoH (YouTube)
+sni | onlinetrade.ru | ANY | Двойной SNI (onlinetrade.ru)
+sni | yoomoney.ru | ANY | Двойной SNI (yoomoney.ru)
+sni | rncb.ru | ANY | Двойной SNI (rncb.ru)
+sni | login.live.com | ANY | Двойной SNI (DPI эталон)
+sni | youtube.com | ANY | Двойной SNI (YouTube)
+sni | discord.com | ANY | Двойной SNI (Discord)
