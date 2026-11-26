@@ -13,6 +13,8 @@ class SessionRepository(context: Context) {
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+        isLenient = true
+        allowSpecialFloatingPointValues = true
     }
 
     fun observeSessions(): Flow<List<DiagnosticSession>> =

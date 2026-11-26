@@ -535,7 +535,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     liveLogs = (it.liveLogs + LiveLogEntry(++logCounter, totalMs, "Готово: ${event.session.verdict.headline}")).takeLast(40),
                                 )
                             }
-                            repository.save(event.session)
+                            withContext(NonCancellable) {
+                                runCatching { repository.save(event.session) }
+                                    .onFailure { AppDiagnosticLog.e("Storage", "Ошибка сохранения проверки в историю", it) }
+                            }
                         }
                     }
                 }
@@ -1029,6 +1032,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ),
             )
             repository.save(session)
+        }.onFailure { err ->
+            AppDiagnosticLog.e("Storage", "Ошибка сохранения отчёта в историю ($label)", err)
         }
     }
 
@@ -1725,6 +1730,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             lastSimpleSummary = summary,
                         )
                     }
+                    saveToolSessionToHistory(
+                        snap = snapAfter ?: snapBefore,
+                        label = "Помощь близкому: ${suite.name}",
+                        hostOrUrl = suite.steps.firstOrNull()?.target?.ifBlank { "ya.ru" } ?: "ya.ru",
+                        headline = summary.title,
+                        explanation = "${summary.explanation}\n" + collected.joinToString("\n") {
+                            "[${it.step.kind.name}] ${it.step.target.ifBlank { "Wi-Fi" }}: ${it.outcome} - ${it.headline}"
+                        },
+                        isProblem = collected.any { it.outcome != SuiteStepOutcome.OK },
+                    )
                 }
             }
         }
