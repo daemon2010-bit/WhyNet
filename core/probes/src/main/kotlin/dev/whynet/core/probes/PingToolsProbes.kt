@@ -27,6 +27,9 @@ import java.net.Socket
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 data class ServiceLatencyEntry(
     val code: String,
@@ -429,14 +432,14 @@ class PingToolsProbes {
         val loadedExtSamples = mutableListOf<Double>()
         val speedSeries = mutableListOf<Double>()
         val totalBytes = AtomicLong(0L)
+        val loadStartAtomic = AtomicLong(0L)
         var usedServer = "РФ-резерв"
         var cfBlocked = false
-        val loadStarted = System.currentTimeMillis()
 
-        // Сначала пробуем быстрый РФ-сервер (чтобы не терять время на таймауте заблокированного CF), затем Cloudflare и Hetzner
+        // Сначала проверенный быстрый РФ-сервер (mirror.yandex.ru), затем Selectel, Cloudflare и Hetzner
         val testUrls = listOf(
-            "selectel.ru (РФ)" to "https://speedtest.selectel.ru/10MB",
             "yandex.ru (РФ)" to "https://mirror.yandex.ru/ubuntu/ls-lR.gz",
+            "selectel.ru (РФ)" to "https://speedtest.selectel.ru/10MB",
             "speed.cloudflare.com" to "https://speed.cloudflare.com/__down?bytes=15000000",
             "ash-speed.hetzner.com" to "https://ash-speed.hetzner.com/10MB.bin",
         )
@@ -444,8 +447,18 @@ class PingToolsProbes {
         coroutineScope {
             val pingJob = launch(Dispatchers.IO) {
                 var prevBytes = 0L
-                var prevTime = System.currentTimeMillis()
-                while (isActive && System.currentTimeMillis() - loadStarted < 5500L) {
+                var prevTime = 0L
+                while (isActive) {
+                    val actualStart = loadStartAtomic.get()
+                    if (actualStart == 0L) {
+                        delay(150)
+                        continue
+                    }
+                    if (prevTime == 0L) {
+                        prevTime = actualStart
+                        prevBytes = 0L
+                    }
+                    if (System.currentTimeMillis() - actualStart >= 5500L) break
                     if (!gatewayIp.isNullOrBlank()) {
                         probeTcpQuick(gatewayIp, 80, 600, acceptReset = true)?.let {
                             synchronized(loadedGwSamples) { loadedGwSamples += it }
@@ -461,13 +474,12 @@ class PingToolsProbes {
                     synchronized(speedSeries) { speedSeries += instMbps }
                     prevBytes = curBytes
                     prevTime = now
-                    delay(350)
+                    delay(300)
                 }
             }
 
             // Пытаемся качать поток 5 секунд с первого доступного тестового сервера
             for ((label, url) in testUrls) {
-                val attemptStart = System.currentTimeMillis()
                 val attemptBytes = AtomicLong(0L)
                 val ok = runCatching {
                     val req = Request.Builder()
@@ -479,7 +491,9 @@ class PingToolsProbes {
                         usedServer = label
                         val buf = ByteArray(16384)
                         val stream = resp.body.byteStream()
-                        while (System.currentTimeMillis() - attemptStart < 5000L) {
+                        val firstByteStart = System.currentTimeMillis()
+                        loadStartAtomic.compareAndSet(0L, firstByteStart)
+                        while (System.currentTimeMillis() - firstByteStart < 5000L) {
                             val n = stream.read(buf)
                             if (n <= 0) break
                             attemptBytes.addAndGet(n.toLong())
@@ -497,7 +511,8 @@ class PingToolsProbes {
             pingJob.cancel()
         }
 
-        val elapsedSec = ((System.currentTimeMillis() - loadStarted).coerceAtLeast(500L)) / 1000.0
+        val actualLoadStart = loadStartAtomic.get().takeIf { it > 0L } ?: System.currentTimeMillis()
+        val elapsedSec = ((System.currentTimeMillis() - actualLoadStart).coerceAtLeast(500L)) / 1000.0
         val mbps = (totalBytes.get() * 8.0) / (elapsedSec * 1_000_000.0)
         val loadedGw = synchronized(loadedGwSamples) { loadedGwSamples.takeIf { it.isNotEmpty() }?.average() }
         val loadedExt = synchronized(loadedExtSamples) { loadedExtSamples.takeIf { it.isNotEmpty() }?.average() }
@@ -681,7 +696,11 @@ class PingToolsProbes {
         coroutineScope {
             targets.map { spec ->
                 async(Dispatchers.IO) {
-                    val rtt = probeTcpQuick(spec.host, spec.port, timeoutMs = 1500, acceptReset = false)
+                    val rtt = if (spec.proto == "HTTPS") {
+                        probeTlsQuick(spec.host, spec.port, timeoutMs = 2000)
+                    } else {
+                        probeTcpQuick(spec.host, spec.port, timeoutMs = 1500, acceptReset = false)
+                    }
                     ServiceLatencyEntry(
                         code = spec.code,
                         name = spec.name,
@@ -693,6 +712,25 @@ class PingToolsProbes {
                 }
             }.awaitAll()
         }
+    }
+
+    private fun probeTlsQuick(host: String, port: Int, timeoutMs: Int): Double? {
+        val t0 = System.nanoTime()
+        return runCatching {
+            val raw = Socket()
+            raw.connect(InetSocketAddress(host, port), timeoutMs)
+            raw.soTimeout = timeoutMs
+            val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            val ssl = factory.createSocket(raw, host, port, true) as SSLSocket
+            ssl.use { s ->
+                s.soTimeout = timeoutMs
+                val params = s.sslParameters
+                params.serverNames = listOf(SNIHostName(host))
+                s.sslParameters = params
+                s.startHandshake()
+                (System.nanoTime() - t0) / 1_000_000.0
+            }
+        }.getOrNull()
     }
 
     private fun probeHttpContour(

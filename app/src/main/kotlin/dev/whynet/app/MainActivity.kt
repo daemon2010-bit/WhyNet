@@ -72,9 +72,7 @@ import dev.whynet.app.report.SuiteRunRecord
 import dev.whynet.app.report.SuiteRunnerReport
 import dev.whynet.app.ui.components.IssueReportDialog
 import dev.whynet.app.ui.screens.CheckScreen
-import dev.whynet.app.ui.screens.HelpScreen
 import dev.whynet.app.ui.screens.HistoryScreen
-import dev.whynet.app.ui.screens.SimpleModeScreen
 import dev.whynet.app.ui.screens.ToolsScreen
 import dev.whynet.app.ui.screens.WifiAnalyzerScreen
 import androidx.compose.ui.unit.dp
@@ -102,7 +100,6 @@ sealed interface AppTab {
     data object Check : AppTab
     data object Wifi : AppTab
     data object Tools : AppTab
-    data object Help : AppTab
     data object History : AppTab
 }
 
@@ -455,28 +452,6 @@ private fun WhyNetAppShell(
         viewModel.runSelectedTool()
     }
 
-    if (helpState.simpleModeEnabled) {
-        BackHandler {
-            viewModel.setSimpleMode(false)
-        }
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            contentWindowInsets = WindowInsets.safeDrawing,
-        ) { innerPadding ->
-            SimpleModeScreen(
-                helpState = helpState,
-                onStartCheck = viewModel::startHelpCheck,
-                onStopCheck = viewModel::stopHelpCheck,
-                onExportReport = onExportSuiteReport,
-                onStartGuestCode = viewModel::startGuestRemoteSession,
-                onStopGuestCode = { viewModel.stopRemoteSession() },
-                onExitSimpleMode = { viewModel.setSimpleMode(false) },
-                modifier = Modifier.padding(innerPadding),
-            )
-        }
-        return
-    }
-
     BackHandler(enabled = !showSettingsDialog && !showIssueReportDialog) {
         if (!popBackStack()) {
             val now = System.currentTimeMillis()
@@ -506,7 +481,7 @@ private fun WhyNetAppShell(
                         .height(52.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val netSel = currentTab == AppTab.Check || currentTab == AppTab.History || currentTab == AppTab.Help
+                    val netSel = currentTab == AppTab.Check || currentTab == AppTab.History
                     val wifiSel = currentTab == AppTab.Wifi
                     val toolsSel = currentTab == AppTab.Tools
 
@@ -649,7 +624,6 @@ private fun WhyNetAppShell(
                         onShareReport = onShareReport,
                         onOpenIssueReport = { showIssueReportDialog = true },
                         onOpenHistory = { navigateToTab(AppTab.History) },
-                        onOpenHelpLink = { navigateToTab(AppTab.Help) },
                         onOpenSettings = { showSettingsDialog = true },
                         onOpenAppCheck = {
                             viewModel.selectTool(ToolKind.APP_OBSERVER)
@@ -773,31 +747,6 @@ private fun WhyNetAppShell(
                         onWolMacChange = viewModel::updateWolMac,
                         onWolBroadcastChange = viewModel::updateWolBroadcast,
                         onCidrChange = viewModel::updateCidrInput,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                entry<AppTab.Help> {
-                    HelpScreen(
-                        state = helpState,
-                        builtSpec = viewModel.buildCurrentHelpTaskSpec(),
-                        onToggleSimpleMode = viewModel::setSimpleMode,
-                        onUpdateHelperName = viewModel::updateHelperName,
-                        onUpdateBuilderPreset = viewModel::updateBuilderPreset,
-                        onUpdateBuilderTargets = viewModel::updateBuilderTargets,
-                        onUpdateBuilderAutoStart = viewModel::updateBuilderAutoStart,
-                        onUpdateBuilderNote = viewModel::updateBuilderNote,
-                        onCopyHelpLink = onCopyHelpLink,
-                        onShareHelpLink = onShareHelpLink,
-                        onShareHelpFile = onShareHelpFile,
-                        onUpdatePasteLink = viewModel::updatePasteLinkInput,
-                        onApplyPastedLink = { viewModel.applyPastedHelpLink() },
-                        onUpdateRelayUrl = viewModel::updateRelayUrl,
-                        onUpdateRemoteInputCode = viewModel::updateRemoteInputCode,
-                        onUpdateRemoteHelperHost = viewModel::updateRemoteHelperHost,
-                        onStartGuestRemote = viewModel::startGuestRemoteSession,
-                        onStartHelperRemote = viewModel::startHelperRemoteSession,
-                        onSendRemoteCommand = viewModel::sendRemoteCommand,
-                        onStopRemote = { viewModel.stopRemoteSession() },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

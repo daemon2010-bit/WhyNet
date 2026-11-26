@@ -89,7 +89,6 @@ fun CheckScreen(
     onShareReport: (DiagnosticSession) -> Unit,
     onOpenIssueReport: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenHelpLink: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAppCheck: () -> Unit,
     modifier: Modifier = Modifier,
@@ -150,7 +149,6 @@ fun CheckScreen(
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     CompactHeaderButton(text = tr("История", "History"), onClick = onOpenHistory)
-                    CompactHeaderButton(text = tr("Ссылка", "Link"), onClick = onOpenHelpLink)
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
