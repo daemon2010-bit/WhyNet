@@ -71,6 +71,8 @@ class DiagnosticOrchestrator(
     fun runDiagnostic(
         rawTarget: DiagnosticTarget,
         overallDeadlineMs: Long = 20_000L,
+        precomputedSnapshot: NetworkSnapshot? = null,
+        skipLocalLinkProbe: Boolean = false,
     ): Flow<DiagnosticRunEvent> = channelFlow {
         val runStart = System.currentTimeMillis()
         suspend fun log(msg: String) {
@@ -106,7 +108,7 @@ class DiagnosticOrchestrator(
                 send(DiagnosticRunEvent.StageStarted(StageId.ENVIRONMENT, "Снимок сети и настроек"))
                 log("Считываем Wi-Fi/сотовую сеть, VPN, прокси, DNS и внешний IP...")
                 val envStart = System.currentTimeMillis()
-                val snap = environmentCollector.collectSnapshot(fetchExternalIp = true)
+                val snap = precomputedSnapshot ?: environmentCollector.collectSnapshot(fetchExternalIp = true)
                 snapshot = snap
                 send(DiagnosticRunEvent.SnapshotReady(snap))
 
@@ -127,16 +129,18 @@ class DiagnosticOrchestrator(
                 send(DiagnosticRunEvent.ProbeCompleted(envProbe))
 
                 if (snap.transport != TransportKind.NONE && !snap.isCaptivePortal) {
-                    // 1. Локальный участок (шлюз + внешний контроль)
-                    send(DiagnosticRunEvent.StageStarted(StageId.LOCAL_LINK, "Шлюз (роутер) и внешняя связность"))
-                    val localProbe = probes.runGatewayAndExternalProbe(
-                        gatewayIp = snap.gatewayIp,
-                        count = 5,
-                        onProgress = { msg -> log(msg) },
-                    )
-                    results += localProbe
-                    log("Шлюз/сеть: ${localProbe.summary}")
-                    send(DiagnosticRunEvent.ProbeCompleted(localProbe))
+                    if (!skipLocalLinkProbe) {
+                        // 1. Локальный участок (шлюз + внешний контроль)
+                        send(DiagnosticRunEvent.StageStarted(StageId.LOCAL_LINK, "Шлюз (роутер) и внешняя связность"))
+                        val localProbe = probes.runGatewayAndExternalProbe(
+                            gatewayIp = snap.gatewayIp,
+                            count = 5,
+                            onProgress = { msg -> log(msg) },
+                        )
+                        results += localProbe
+                        log("Шлюз/сеть: ${localProbe.summary}")
+                        send(DiagnosticRunEvent.ProbeCompleted(localProbe))
+                    }
 
                     // 2. DNS (Системный vs DoH)
                     send(DiagnosticRunEvent.StageStarted(StageId.DNS, "DNS: системный и контрольный DoH"))

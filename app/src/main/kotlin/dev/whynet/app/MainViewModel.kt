@@ -86,7 +86,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -1143,17 +1150,68 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 snapBefore = envCollector.collectSnapshot(fetchExternalIp = true)
                 _checkState.update { it.copy(liveSnapshot = snapBefore) }
 
-                for ((idx, step) in suite.steps.withIndex()) {
+                val serialKinds = setOf(
+                    SuiteStepKind.NETWORK,
+                    SuiteStepKind.CALLS,
+                    SuiteStepKind.UDP,
+                    SuiteStepKind.MTU,
+                    SuiteStepKind.TRACEROUTE,
+                    SuiteStepKind.WIFI,
+                )
+                val serialSteps = suite.steps.filter { it.kind in serialKinds }
+                val parallelSteps = suite.steps.filter { it.kind !in serialKinds }
+                val lock = Mutex()
+                var doneCount = 0
+
+                // 1. Сначала последовательные шаги (чувствительные к нагрузке канала)
+                for (step in serialSteps) {
                     _suiteState.update {
                         it.copy(
-                            currentIndex = idx + 1,
-                            currentStepTitle = "${idx + 1}/${suite.steps.size}: [${step.kind.name}] ${step.target.ifBlank { "Wi-Fi" }}",
+                            currentIndex = doneCount + 1,
+                            currentStepTitle = "${doneCount + 1}/${suite.steps.size}: [${step.kind.name}] ${step.target.ifBlank { "Wi-Fi" }}",
                         )
                     }
-                    val stepResult = executeSuiteStep(step)
-                    collected += stepResult
-                    _suiteState.update { it.copy(results = collected.toList()) }
+                    val stepResult = executeSuiteStep(step, precomputedSnapshot = snapBefore, fastSiteMode = false)
+                    lock.withLock {
+                        collected += stepResult
+                        doneCount = collected.size
+                        val sorted = collected.sortedBy { it.step.index }
+                        _suiteState.update { it.copy(currentIndex = doneCount, results = sorted) }
+                    }
                 }
+
+                // 2. Затем все независимые SITE / DNS / SNI шаги параллельно (x8 потоков)
+                if (parallelSteps.isNotEmpty()) {
+                    val sem = Semaphore(8)
+                    coroutineScope {
+                        parallelSteps.map { step ->
+                            async(Dispatchers.IO) {
+                                sem.withPermit {
+                                    val stepResult = executeSuiteStep(
+                                        step = step,
+                                        precomputedSnapshot = snapBefore,
+                                        fastSiteMode = true,
+                                    )
+                                    lock.withLock {
+                                        collected += stepResult
+                                        doneCount = collected.size
+                                        val sorted = collected.sortedBy { it.step.index }
+                                        _suiteState.update {
+                                            it.copy(
+                                                currentIndex = doneCount,
+                                                currentStepTitle = "Параллельно x8: $doneCount/${suite.steps.size} (${step.target})",
+                                                results = sorted,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }.awaitAll()
+                    }
+                }
+                val finalSorted = collected.sortedBy { it.step.index }
+                collected.clear()
+                collected.addAll(finalSorted)
             } catch (e: CancellationException) {
                 cancelled = true
                 throw e
@@ -1195,7 +1253,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun executeSuiteStep(step: SuiteStep): SuiteStepResult {
+    private suspend fun executeSuiteStep(
+        step: SuiteStep,
+        precomputedSnapshot: NetworkSnapshot? = null,
+        fastSiteMode: Boolean = false,
+    ): SuiteStepResult {
         val started = System.currentTimeMillis()
         val cleanHost = step.target.trim()
             .removePrefix("https://").removePrefix("http://").substringBefore('/')
@@ -1215,8 +1277,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         port = 443,
                         label = step.target.ifBlank { step.kind.name },
                     )
+                    val isFastSite = fastSiteMode && step.kind == SuiteStepKind.SITE
                     var finishedSession: DiagnosticSession? = null
-                    orchestrator.runDiagnostic(target).collect { ev ->
+                    orchestrator.runDiagnostic(
+                        rawTarget = target,
+                        overallDeadlineMs = if (isFastSite) 10_000L else 20_000L,
+                        precomputedSnapshot = if (isFastSite) precomputedSnapshot else null,
+                        skipLocalLinkProbe = isFastSite,
+                    ).collect { ev ->
                         if (ev is DiagnosticRunEvent.Finished) {
                             finishedSession = ev.session
                         }
