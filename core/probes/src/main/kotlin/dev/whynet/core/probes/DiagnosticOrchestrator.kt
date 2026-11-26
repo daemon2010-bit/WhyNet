@@ -162,11 +162,13 @@ class DiagnosticOrchestrator(
                     }
                     val usedDohFallback = dnsMetrics?.systemIpv4.isNullOrEmpty() && !dnsMetrics?.dohIpv4.isNullOrEmpty()
 
-                    // 3. TCP Dual-Stack (IPv4 / IPv6)
+                    // 3. TCP Dual-Stack (IPv4 / IPv6) + авто-фолбэк на www.<host>, если голый домен не отвечает (как делает браузер, например для rzd.ru)
+                    var effectiveHost = host
+                    var effectiveUrl = target.hostOrUrl
                     if (resolvedV4 != null || resolvedV6 != null) {
                         send(DiagnosticRunEvent.StageStarted(StageId.TCP, "TCP-подключение (IPv4 / IPv6)"))
-                        val tcpProbe = probes.runTcpDualStackProbe(
-                            hostname = host,
+                        var tcpProbe = probes.runTcpDualStackProbe(
+                            hostname = effectiveHost,
                             port = target.port,
                             ipv4 = resolvedV4,
                             ipv6 = resolvedV6,
@@ -174,21 +176,58 @@ class DiagnosticOrchestrator(
                             network = initialNetwork,
                             onProgress = { msg -> log(msg) },
                         )
-                        results += tcpProbe
-                        send(DiagnosticRunEvent.ProbeCompleted(tcpProbe))
-
-                        // 4. Двойной SNI / TLS-тест
-                        val workingIp = when {
+                        var workingIp = when {
                             tcpProbe.tcpDualStack?.ipv4Ok == true -> resolvedV4
                             tcpProbe.tcpDualStack?.ipv6Ok == true -> resolvedV6
                             else -> null
                         }
+
+                        if (workingIp == null && target.type == TargetType.WEBSITE && !effectiveHost.startsWith("www.")) {
+                            val wwwHost = "www.$effectiveHost"
+                            log("Голый домен $effectiveHost не ответил по TCP - пробуем $wwwHost (как браузер)...")
+                            val wwwDns = probes.runDnsCompareProbe(hostname = wwwHost, network = initialNetwork)
+                            val wwwV4 = wwwDns.dnsCompare?.systemIpv4?.firstOrNull() ?: wwwDns.dnsCompare?.dohIpv4?.firstOrNull()
+                            val wwwV6 = if (snap.localIpv6 != null) {
+                                wwwDns.dnsCompare?.systemIpv6?.firstOrNull() ?: wwwDns.dnsCompare?.dohIpv6?.firstOrNull()
+                            } else {
+                                null
+                            }
+                            if (wwwV4 != null || wwwV6 != null) {
+                                val wwwTcp = probes.runTcpDualStackProbe(
+                                    hostname = wwwHost,
+                                    port = target.port,
+                                    ipv4 = wwwV4,
+                                    ipv6 = wwwV6,
+                                    usedDohFallback = false,
+                                    network = initialNetwork,
+                                )
+                                val wwwWorkingIp = when {
+                                    wwwTcp.tcpDualStack?.ipv4Ok == true -> wwwV4
+                                    wwwTcp.tcpDualStack?.ipv6Ok == true -> wwwV6
+                                    else -> null
+                                }
+                                if (wwwWorkingIp != null) {
+                                    log("$wwwHost доступен по TCP - продолжаем проверку через $wwwHost.")
+                                    effectiveHost = wwwHost
+                                    effectiveUrl = "https://$wwwHost"
+                                    tcpProbe = wwwTcp.copy(
+                                        summary = "${wwwTcp.summary} (через $wwwHost; голый $host не отвечал)",
+                                    )
+                                    workingIp = wwwWorkingIp
+                                }
+                            }
+                        }
+
+                        results += tcpProbe
+                        send(DiagnosticRunEvent.ProbeCompleted(tcpProbe))
+
+                        // 4. Двойной SNI / TLS-тест
                         if (workingIp != null && target.port == 443) {
                             send(DiagnosticRunEvent.StageStarted(StageId.TLS_SNI, "TLS и двойной SNI-тест"))
                             val tlsProbe = probes.runDualSniTlsProbe(
                                 ipAddress = workingIp,
                                 port = target.port,
-                                targetSni = host,
+                                targetSni = effectiveHost,
                                 network = initialNetwork,
                                 onProgress = { msg -> log(msg) },
                             )
@@ -198,7 +237,7 @@ class DiagnosticOrchestrator(
                             // 5. HTTP-редиректы и Payload Range 0-1023
                             if (tlsProbe.status == ProbeStatus.SUCCESS) {
                                 send(DiagnosticRunEvent.StageStarted(StageId.HTTP_PAYLOAD, "HTTP-редиректы и передача данных (1 КБ)"))
-                                val url = normalizeHttpsUrl(target.hostOrUrl)
+                                val url = normalizeHttpsUrl(effectiveUrl)
                                 val httpProbe = probes.runHttpPayloadProbe(
                                     initialUrl = url,
                                     onProgress = { msg -> log(msg) },

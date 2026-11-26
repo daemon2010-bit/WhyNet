@@ -401,7 +401,11 @@ fun CheckScreen(
         // 5. Вердикт + Рекомендации "Что сделать" (сразу под графикой!)
         if (session != null && !state.isRunning) {
             item(key = "v2_verdict") {
-                val blockedContours = state.quickContours.filter { it.status == "FAIL" }.map { it.label }
+                val blockedContours = if (session.target.type == TargetType.NETWORK_HEALTH) {
+                    state.quickContours.filter { it.status == "FAIL" }.map { it.label }
+                } else {
+                    emptyList()
+                }
                 VerdictAndAdviceCard(
                     session = session,
                     blockedContours = blockedContours,
@@ -1102,7 +1106,7 @@ private fun AdGuardAndVpnExclusionCard(
                     )
                     Text(
                         text = tr(
-                            "1. Настройки (шестерёнка) - Фильтрация - Белый список сайтов - «+» - Вставить ($domain).\n2. Если сайт РФ (например rzd.ru) всё ещё не грузится: Фильтрация - Сеть - HTTPS-фильтрация - Исключения - «+» - Вставить ($domain).\n3. Вернитесь в WhyNet и нажмите «Проверить».",
+                            "1. Настройки (шестерёнка) - Фильтрация - Белый список сайтов - «+» - Вставить ($domain).\n2. Для РФ-сайтов (например rzd.ru): Фильтрация - Сеть - HTTPS-фильтрация - Сайты с HTTPS-фильтрацией - Белый список сайтов - «+» - Вставить ($domain).\n3. Вернитесь в WhyNet и нажмите «Проверить».",
                             "1. Settings - Filtering - Allowlist - '+' - Paste ($domain).\n2. If still blocked: Filtering - Network - HTTPS filtering - Exclusions - '+' - Paste ($domain).\n3. Return to WhyNet and tap Check.",
                         ),
                         fontSize = 11.sp,
